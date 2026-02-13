@@ -8,6 +8,7 @@ A Next.js application demonstrating DigitalOcean's AI platform capabilities, fea
 - **Playwright Browser Automation**: Remote browser control through MCP (Model Context Protocol)
 - **DigitalOcean Spaces**: Automatic file upload and optimization for media content
 - **Interactive Web Tools**: Screenshot capture and browser automation capabilities
+- **Memory Book Creator**: Interactive chatbot for creating personalized memory books with Stripe payment integration
 
 ## Features
 
@@ -28,6 +29,17 @@ A Next.js application demonstrating DigitalOcean's AI platform capabilities, fea
 - **Resolution Presets**: Common desktop and mobile resolutions
 - **Full Page Screenshots**: Capture entire scrollable pages
 - **High Quality Mode**: Toggle between compressed and high-quality screenshots
+
+#### 3. Memory Book Creator (NEW)
+
+- **Interactive Chatbot**: Step-by-step guided experience for creating memory books
+- **Media Upload**: Support for uploading photos and videos of loved ones
+- **Music Selection**: Choose from preset music options or upload custom audio
+- **Stripe Payment Integration**: Secure checkout for memory book orders ($29.99)
+- **Mobile-Friendly**: Fully responsive design optimized for mobile browsers
+- **Secure File Storage**: Private S3-compatible storage with presigned URLs
+
+See [MEMORYBOOK.md](./MEMORYBOOK.md) for detailed documentation on the Memory Book Creator feature.
 
 ### User Interface
 
@@ -245,7 +257,7 @@ GRADIENT_BASE_URL="https://inference.do-ai.run/v1"
 
 ### DigitalOcean Spaces Configuration
 
-[Spaces](https://docs.digitalocean.com/products/spaces/) is DigitalOcean's S3-compatible object storage for uploading chat media.
+[Spaces](https://docs.digitalocean.com/products/spaces/) is DigitalOcean's S3-compatible object storage for uploading chat media and memory book files.
 
 ```bash
 # Create a Space: https://docs.digitalocean.com/products/spaces/how-to/create/
@@ -259,6 +271,17 @@ DO_SPACES_SECRET_KEY=your_spaces_secret_key_here
 
 # Your Space name (must be globally unique)
 DO_SPACES_BUCKET=your_bucket_name_here
+```
+
+### Stripe Configuration (for Memory Book Creator)
+
+[Stripe](https://stripe.com) is used for secure payment processing in the Memory Book Creator.
+
+```bash
+# Get your API keys from: https://dashboard.stripe.com/apikeys
+# Use test keys for development, live keys for production
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
+STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
 ```
 
 ### Playwright MCP Server Configuration

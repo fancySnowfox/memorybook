@@ -22,12 +22,14 @@
     "@heroicons/react": "^2.2.0",
     "@modelcontextprotocol/sdk": "^1.17.0",
     "@playwright/mcp": "^0.0.32",
+    "@stripe/stripe-js": "^8.7.0",
     "ai": "^5.0.0-beta.29",
     "date-fns": "^4.1.0",
     "dots-wrapper": "^3.12.1",
     "humanize-duration": "^3.32.1",
     "loader-utils": "^3.3.1",
     "lucide-react": "^0.534.0",
+    "multer": "^2.0.2",
     "next": "^15.4.10",
     "playwright": "1.54.1",
     "react": "^19.0.0",
@@ -36,6 +38,7 @@
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^15.6.1",
     "remark-gfm": "^4.0.1",
+    "stripe": "^20.3.1",
     "swr": "^2.3.4",
     "zod": "^4.0.13"
   },
@@ -48,6 +51,7 @@
     "@testing-library/react": "^16.3.0",
     "@types/humanize-duration": "^3.27.4",
     "@types/jest": "^30.0.0",
+    "@types/multer": "^2.0.0",
     "@types/node": "^22.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -67,6 +71,6 @@
     "webpack": "^5.98.0"
   },
   "engines": {
-    "node": ">=22.14.0 <23"
+    "node": ">=22.14.0"
   }
 }

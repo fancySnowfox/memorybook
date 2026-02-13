@@ -1,14 +1,8 @@
 import "./globals.css";
-import { Inter } from "next/font/google";
 import type { Metadata } from "next";
 import Header from "@/components/Header";
 import ScrollToTop from "@/components/ScrollToTop";
 import { Providers } from "./providers";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "DigitalOcean Gradient CUA Demo",
@@ -23,7 +17,8 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body
-        className={`${inter.variable} antialiased bg-white text-gray-900 h-full w-full`}
+        className={`antialiased bg-white text-gray-900 h-full w-full`}
+        style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
       >
         <Providers>
           {/* Fixed Header */}

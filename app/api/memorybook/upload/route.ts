@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,18 +34,27 @@ export async function POST(request: NextRequest) {
       const buffer = Buffer.from(await file.arrayBuffer());
       const fileName = `memorybook/${type}/${Date.now()}-${file.name}`;
 
+      // Upload with private ACL for security
       const command = new PutObjectCommand({
         Bucket: bucket,
         Key: fileName,
         Body: buffer,
         ContentType: file.type,
-        ACL: 'public-read',
+        ACL: 'private', // Changed from 'public-read' for security
       });
 
       await s3Client.send(command);
       
-      const endpoint = process.env.DO_SPACES_ENDPOINT || '';
-      const url = `${endpoint}/${bucket}/${fileName}`;
+      // Generate presigned URL for private access
+      const getCommand = new GetObjectCommand({
+        Bucket: bucket,
+        Key: fileName,
+      });
+      
+      const url = await getSignedUrl(s3Client, getCommand, {
+        expiresIn: 3600 * 24 * 7, // 7 days
+      });
+      
       uploadedUrls.push(url);
     }
 

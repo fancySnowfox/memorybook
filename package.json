@@ -58,7 +58,7 @@
     "jest-environment-jsdom": "^30.0.4",
     "jest-mock-extended": "^4.0.0",
     "lint-staged": "^16.1.2",
-    "swc-loader": "^0.2.6",
+    "swc-loader": "^0.2.7",
     "tailwindcss": "^4",
     "ts-jest": "^29.4.0",
     "ts-node": "^10.9.2",

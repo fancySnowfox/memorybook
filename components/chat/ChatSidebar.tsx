@@ -2,7 +2,6 @@
  * Chat sidebar component with collapsible sections
  */
 import React, { useState } from 'react';
-import ModelSelector from '@/components/ModelSelector';
 import ParameterControls from '@/components/ParameterControls';
 import KeyboardShortcut from '@/components/KeyboardShortcut';
 
@@ -17,7 +16,6 @@ interface ChatSidebarProps {
     maxOutputTokens: number;
     maxSteps: number;
   };
-  onModelChange: (model: string, maxTokens?: number) => void;
   onParameterChange: (param: string, value: number) => void;
   onNewChat: () => void;
   debugMode: boolean;
@@ -29,7 +27,6 @@ interface ChatSidebarProps {
 export default function ChatSidebar({
   selectedModel,
   parameters,
-  onModelChange,
   onParameterChange,
   onNewChat,
   debugMode,
@@ -150,14 +147,6 @@ export default function ChatSidebar({
               />
             </div>
           </button>
-        </div>
-
-        {/* Model Selection */}
-        <div className="space-y-2">
-          <ModelSelector
-            selectedModel={selectedModel}
-            onModelChange={onModelChange}
-          />
         </div>
 
         {/* Advanced Parameters */}

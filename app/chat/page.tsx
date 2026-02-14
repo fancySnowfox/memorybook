@@ -18,7 +18,8 @@ import { useState, useCallback } from "react";
  * parameter controls, and tool support
  */
 export default function Chat() {
-  const [selectedModel, setSelectedModel] = useState("openai-gpt-4.1");
+  // Using a single fixed model
+  const selectedModel = process.env.NEXT_PUBLIC_AI_MODEL || "openai-gpt-4.1";
   const [debugMode, setDebugMode] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(320);
 
@@ -51,7 +52,6 @@ export default function Chat() {
     transport: new DefaultChatTransport({
       api: "/api/chat",
       headers: () => ({
-        "x-model": selectedModel,
         ...getHeaders(),
       }),
     }),
@@ -72,10 +72,9 @@ export default function Chat() {
     },
   });
 
+  // Model is fixed, no need to change it
   const handleModelChange = useCallback(
     (model: string, maxTokens?: number) => {
-      console.log("Model changed to:", model, "with maxTokens:", maxTokens);
-      setSelectedModel(model);
       if (maxTokens) {
         updateMaxOutputTokens(maxTokens);
       }
@@ -94,13 +93,11 @@ export default function Chat() {
   const handleSendMessage = useCallback(
     (text: string) => {
       const headers = {
-        "x-model": selectedModel,
         ...getHeaders(),
       };
-      console.log("Sending message with headers:", headers);
       sendMessage({ text }, { headers });
     },
-    [selectedModel, getHeaders, sendMessage]
+    [getHeaders, sendMessage]
   );
 
   return (
@@ -128,7 +125,6 @@ export default function Chat() {
       <ChatSidebar
         selectedModel={selectedModel}
         parameters={parameters}
-        onModelChange={handleModelChange}
         onParameterChange={handleParameterChange}
         onNewChat={handleNewChat}
         debugMode={debugMode}

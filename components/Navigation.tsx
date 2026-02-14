@@ -5,13 +5,11 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   ChatBubbleLeftRightIcon,
-  CameraIcon,
   Bars3Icon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 
 const navigationItems = [
-  { name: "Screenshotter", href: "/screenshotter", icon: CameraIcon },
   { name: "Chat", href: "/chat", icon: ChatBubbleLeftRightIcon },
 ];
 

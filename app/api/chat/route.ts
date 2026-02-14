@@ -3,28 +3,25 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
     convertToModelMessages,
-    experimental_createMCPClient,
     stepCountIs,
     streamText,
     tool,
     UIMessage,
 } from 'ai';
+import { createMCPClient } from "@ai-sdk/mcp"
 import { z } from 'zod';
 import { PingAwareTransportWrapper } from '@/lib/mcp-transport';
 import { processMessagesForBase64, processToolCallForBase64, processToolResultForBase64 } from '@/app/lib/s3-utils';
 
 
 
+// Use a single hardcoded model
+const DEFAULT_MODEL_ID = process.env.AI_MODEL_ID || 'openai-gpt-4.1';
+
 export async function POST(req: Request) {
 
-    // Get parameters from headers
-    const modelId = req.headers.get('x-model');
-    if (!modelId) {
-        return Response.json(
-            { error: 'Model ID is required' },
-            { status: 400 }
-        );
-    }
+    // Use the hardcoded model
+    const modelId = DEFAULT_MODEL_ID;
 
     const provider = createOpenAICompatible({
         name: 'Gradient',
@@ -47,7 +44,7 @@ export async function POST(req: Request) {
     const transport = new PingAwareTransportWrapper(baseTransport);
 
     const [mcpClient, body] = await Promise.all([
-        experimental_createMCPClient({
+        createMCPClient({
             transport,
             async onUncaughtError(error) {
                 console.error('Uncaught error in MCP client:', error);
@@ -129,7 +126,7 @@ export async function POST(req: Request) {
                 presencePenalty,
                 frequencyPenalty,
                 system: `You are a helpful chatbot capable of anything the user asks for. You're empowered to decide , no need to always ask for confirmation. Your goal is to help the user find the content they need by searching Bing. You can navigate to other websites as well, and you should always send screenshots. Take as many steps as you need to complete the task. Be creative and resourceful in your approach.`,
-                messages: convertToModelMessages(messages),
+                messages: await convertToModelMessages(messages),
                 maxRetries: 5,
             });
 

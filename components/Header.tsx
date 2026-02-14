@@ -1,7 +1,7 @@
 import { metadata } from "@/app/layout";
 import Image from "next/image";
 import Link from "next/link";
-import digitaloceanLogo from "@/public/digitalocean.svg";
+import snowfoxLogo from "@/public/SnowfoxConsulting.png";
 import Navigation from "./Navigation";
 
 export default function Header() {
@@ -18,11 +18,11 @@ export default function Header() {
     >
       <Link href="/" className="flex items-center gap-6 no-underline">
         <Image
-          src={digitaloceanLogo}
-          alt="DigitalOcean"
+          src={snowfoxLogo}
+          alt="Snowfox Consulting"
           width={48}
           height={48}
-          className="white-svg"
+          className="object-contain"
         />
 
         {metadata.title && (

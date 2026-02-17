@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snowfox Consulting - AI Chat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <!-- Header -->
+  <header class="fixed top-0 left-0 right-0 h-16 bg-gradient-to-r from-blue-600 to-blue-700 shadow-md text-white z-50 flex items-center justify-between px-6">
+    <a href="/" class="flex items-center gap-3 no-underline">
+      <img src="/SnowfoxConsulting.png" alt="Snowfox Consulting" width="48" height="48" class="w-12 h-12 object-contain">
+      <span class="text-xl font-semibold">Snowfox AI Chat</span>
+    </a>
+    <nav class="flex items-center gap-4">
+      <a href="/chat" class="text-white hover:text-blue-100 transition-colors">Chat</a>
+    </nav>
+  </header>
+
+  <!-- Main Content -->
+  <div class="pt-16 min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+      <!-- Header -->
+      <div class="text-center mb-12">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">Snowfox Consulting AI</h1>
+        <p class="text-xl text-gray-600">Intelligent chat powered by advanced AI models</p>
+      </div>
+
+      <!-- Cards Grid -->
+      <div class="grid grid-cols-1 max-w-2xl mx-auto">
+        <!-- Chat Card -->
+        <a href="/chat" class="group block no-underline">
+          <div class="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 p-8 h-full cursor-pointer transform hover:-translate-y-1">
+            <div class="flex flex-col items-center text-center h-full">
+              <div class="bg-green-100 rounded-full p-4 mb-4 group-hover:bg-green-200 transition-colors">
+                <svg class="h-12 w-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </div>
+              <h2 class="text-2xl font-semibold text-gray-900 mb-3">AI Chat</h2>
+              <p class="text-gray-600 mb-4 flex-grow">Chat with advanced AI and browser automation capabilities</p>
+              <div class="mt-auto">
+                <span class="text-green-600 font-medium group-hover:text-green-700 inline-flex items-center gap-1">
+                  Start Chatting
+                  <span class="transform group-hover:translate-x-1 transition-transform">→</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

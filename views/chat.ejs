@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat - Snowfox Consulting AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .message-user { @apply bg-blue-100 text-blue-900; }
+    .message-assistant { @apply bg-green-100 text-green-900; }
+    .code-block { @apply bg-gray-900 text-gray-100 rounded p-4 overflow-x-auto; }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <!-- Header -->
+  <header class="fixed top-0 left-0 right-0 h-16 bg-gradient-to-r from-blue-600 to-blue-700 shadow-md text-white z-50 flex items-center justify-between px-6">
+    <a href="/" class="flex items-center gap-3 no-underline">
+      <img src="/SnowfoxConsulting.png" alt="Snowfox Consulting" width="48" height="48" class="w-12 h-12 object-contain">
+      <span class="text-xl font-semibold">Snowfox AI Chat</span>
+    </a>
+    <nav class="flex items-center gap-4">
+      <a href="/chat" class="text-white hover:text-blue-100 transition-colors">Chat</a>
+      <a href="/" class="text-white hover:text-blue-100 transition-colors">Home</a>
+    </nav>
+  </header>
+
+  <!-- Main Chat Layout -->
+  <div class="pt-16 h-full flex">
+    <!-- Messages Area -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <!-- Messages Container -->
+      <div id="messages" class="flex-1 overflow-y-auto p-6 space-y-4">
+        <div class="text-center text-gray-500 pt-10">
+          <p class="text-lg">Start a conversation</p>
+          <p class="text-sm">Type a message to begin...</p>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="flex-shrink-0 border-t border-gray-200 bg-white px-6 py-4">
+        <div class="flex gap-2">
+          <input
+            type="text"
+            id="messageInput"
+            placeholder="Type your message..."
+            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            autofocus
+          >
+          <button
+            id="sendButton"
+            onclick="sendMessage()"
+            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Send
+          </button>
+          <button
+            id="stopButton"
+            onclick="stopChat()"
+            class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed hidden"
+          >
+            Stop
+          </button>
+        </div>
+        <div id="status" class="text-sm text-gray-500 mt-2"></div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="w-80 bg-gray-50 border-l border-gray-200 p-6 overflow-y-auto">
+      <div class="space-y-4">
+        <button
+          onclick="clearChat()"
+          class="w-full px-4 py-2 bg-gray-300 text-gray-900 rounded-lg hover:bg-gray-400 transition-colors"
+        >
+          Clear Chat
+        </button>
+
+        <div class="border-t pt-4">
+          <h3 class="font-semibold text-gray-900 mb-4">Settings</h3>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Model</label>
+              <select id="modelSelector" class="w-full px-2 py-1 border border-gray-300 rounded bg-white">
+                <option value="">Loading models...</option>
+              </select>
+              <div id="modelError" class="text-xs text-red-600 mt-1 hidden"></div>
+              <p class="text-xs text-gray-500 mt-1">Select an AI model</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Temperature</label>
+              <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7" class="w-full">
+              <span id="tempValue" class="text-sm text-gray-600">0.7</span>
+              <p class="text-xs text-gray-500 mt-1">Control randomness: lower = more focused, higher = more creative</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Max Tokens</label>
+              <input type="number" id="maxTokens" min="100" max="32000" value="8000" class="w-full px-2 py-1 border border-gray-300 rounded">
+              <p class="text-xs text-gray-500 mt-1">Maximum length of the response</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error Display -->
+        <div id="errorContainer" class="border border-red-200 bg-red-50 p-3 rounded hidden">
+          <p class="text-sm font-semibold text-red-900 mb-2">Error</p>
+          <p id="errorMessage" class="text-sm text-red-800"></p>
+        </div>
+
+        <!-- Status -->
+        <div id="statusContainer" class="border border-blue-200 bg-blue-50 p-3 rounded hidden">
+          <p id="statusMessage" class="text-sm text-blue-800"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let messageHistory = [];
+    let chatController = null;
+    let isLoading = false;
+    let availableModels = [];
+
+    // Initialize models on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadAvailableModels();
+    });
+
+    // Load available models from the API
+    async function loadAvailableModels() {
+      const modelSelector = document.getElementById('modelSelector');
+      try {
+        console.log('Fetching available models from /api/models...');
+        const response = await fetch('/api/models');
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Raw API response:', data);
+        
+        if (data.status === 'error') {
+          const errorMsg = `Failed to load models: ${data.error}`;
+          console.error('API error response:', errorMsg);
+          showError(errorMsg);
+          modelSelector.innerHTML = '<option value="">Error loading models</option>';
+          document.getElementById('modelError').textContent = data.error;
+          document.getElementById('modelError').classList.remove('hidden');
+          return;
+        }
+
+        availableModels = data.models || [];
+        console.log('Parsed models:', availableModels);
+        
+        // Populate model selector
+        modelSelector.innerHTML = '';
+        if (availableModels.length === 0) {
+          console.warn('No models returned from API');
+          modelSelector.innerHTML = '<option value="">No models available</option>';
+          showWarning('No AI models available. Please check your Gradient API configuration.');
+        } else {
+          console.log(`Successfully loaded ${availableModels.length} models`);
+          availableModels.forEach((model) => {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = model.name;
+            modelSelector.appendChild(option);
+            console.log(`Added model option: ${model.id}`);
+          });
+          
+          // Select default model
+          if (data.defaultModel) {
+            modelSelector.value = data.defaultModel;
+            console.log(`Set default model to: ${data.defaultModel}`);
+          }
+        }
+      } catch (error) {
+        const errorMsg = `Failed to load available models: ${error.message}`;
+        console.error('Frontend error loading models:', error);
+        showError(errorMsg);
+        modelSelector.innerHTML = '<option value="">Error loading models</option>';
+        document.getElementById('modelError').textContent = error.message;
+        document.getElementById('modelError').classList.remove('hidden');
+      }
+    }
+
+    function showError(message) {
+      const container = document.getElementById('errorContainer');
+      const messageEl = document.getElementById('errorMessage');
+      messageEl.textContent = message;
+      container.classList.remove('hidden');
+      console.error('Chat Error:', message);
+    }
+
+    function hideError() {
+      document.getElementById('errorContainer').classList.add('hidden');
+    }
+
+    function showWarning(message) {
+      const container = document.getElementById('statusContainer');
+      const messageEl = document.getElementById('statusMessage');
+      messageEl.textContent = '⚠️ ' + message;
+      container.classList.remove('hidden');
+    }
+
+    function hideStatus() {
+      document.getElementById('statusContainer').classList.add('hidden');
+    }
+
+    // Update parameter display values
+    document.getElementById('temperature').addEventListener('change', (e) => {
+      document.getElementById('tempValue').textContent = e.target.value;
+    });
+
+    async function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const message = input.value.trim();
+
+      if (!message) return;
+      if (isLoading) return;
+
+      const selectedModel = document.getElementById('modelSelector').value;
+      if (!selectedModel) {
+        showError('Please select a model first');
+        return;
+      }
+
+      isLoading = true;
+      document.getElementById('sendButton').disabled = true;
+      document.getElementById('stopButton').classList.remove('hidden');
+      hideError();
+      showWarning('Sending message...');
+
+      // Add user message to UI
+      addMessageToUI('user', message);
+      input.value = '';
+
+      // Prepare request
+      const temperature = parseFloat(document.getElementById('temperature').value);
+      const maxTokens = parseInt(document.getElementById('maxTokens').value);
+
+      messageHistory.push({ role: 'user', content: message });
+
+      try {
+        chatController = new AbortController();
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            messages: messageHistory,
+            modelId: selectedModel,
+            temperature,
+            maxTokens,
+          }),
+          signal: chatController.signal,
+        });
+
+        if (!response.ok) {
+          const contentType = response.headers.get('content-type');
+          let error = 'Request failed';
+          let errorData = null;
+          
+          if (contentType?.includes('application/json')) {
+            try {
+              errorData = await response.json();
+              error = errorData.details || errorData.error || error;
+            } catch (e) {
+              error = `HTTP ${response.status}: ${response.statusText}`;
+            }
+          } else {
+            error = `HTTP ${response.status}: ${response.statusText}`;
+          }
+          
+          // Handle model availability errors
+          if (errorData && errorData.availableDefault) {
+            const err = new Error(error);
+            err.isModelUnavailable = true;
+            err.availableDefault = errorData.availableDefault;
+            throw err;
+          }
+          
+          throw new Error(error);
+        }
+
+        hideStatus();
+        showWarning('Streaming response...');
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let assistantMessage = '';
+        let messageElement = null;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          
+          if (chunk) {
+            assistantMessage += chunk;
+            if (!messageElement) {
+              messageElement = addMessageToUI('assistant', '', true);
+            }
+            messageElement.innerHTML = marked.parse(assistantMessage);
+            messageElement.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+          }
+        }
+
+        messageHistory.push({ role: 'assistant', content: assistantMessage });
+        hideStatus();
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          console.error('Chat error:', error);
+          
+          // Handle model unavailability
+          if (error.isModelUnavailable) {
+            const msg = `${error.message}\n\n✓ Would you like to use the default model instead?\n\nClick the model dropdown and select: ${error.availableDefault}`;
+            showError(msg);
+            // Set model selector to the available default
+            const selector = document.getElementById('modelSelector');
+            if (selector && error.availableDefault) {
+              // Find and select the available default
+              const option = Array.from(selector.options).find(o => o.value === error.availableDefault);
+              if (option) {
+                selector.value = error.availableDefault;
+              }
+            }
+          } else {
+            showError(error.message || 'An unexpected error occurred');
+          }
+        } else {
+          showWarning('Chat stopped by user');
+        }
+      } finally {
+        isLoading = false;
+        document.getElementById('sendButton').disabled = false;
+        document.getElementById('stopButton').classList.add('hidden');
+        chatController = null;
+      }
+
+      input.focus();
+    }
+
+    function addMessageToUI(role, content, isStreaming = false) {
+      const messagesContainer = document.getElementById('messages');
+
+      // Clear welcome message if it exists
+      const welcomeMsg = messagesContainer.querySelector('.text-center');
+      if (welcomeMsg) welcomeMsg.remove();
+
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `p-4 rounded-lg ${role === 'user' ? 'message-user ml-auto max-w-xs' : 'message-assistant max-w-2xl'}`;
+
+      if (isStreaming) {
+        messageDiv.innerHTML = '';
+      } else {
+        messageDiv.innerHTML = marked.parse(content);
+        messageDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+      }
+
+      messagesContainer.appendChild(messageDiv);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+      return messageDiv;
+    }
+
+    function stopChat() {
+      if (chatController) {
+        chatController.abort();
+      }
+    }
+
+    function clearChat() {
+      document.getElementById('messages').innerHTML = `
+        <div class="text-center text-gray-500 pt-10">
+          <p class="text-lg">Start a conversation</p>
+          <p class="text-sm">Type a message to begin...</p>
+        </div>
+      `;
+      messageHistory = [];
+      document.getElementById('messageInput').value = '';
+      hideError();
+      hideStatus();
+    }
+
+    // Allow Enter key to send
+    document.getElementById('messageInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !isLoading) {
+        sendMessage();
+      }
+    });
+  </script>
+</body>
+</html>

@@ -22,7 +22,7 @@
     "@aws-sdk/s3-request-presigner": "^3.855.0",
     "@heroicons/react": "^2.2.0",
     "@modelcontextprotocol/sdk": "^1.26.0",
-    "@playwright/mcp": "^0.0.32",
+    "@playwright/mcp": "^0.0.68",
     "ai": "6.0.86",
     "date-fns": "^4.1.0",
     "dots-wrapper": "^3.12.1",

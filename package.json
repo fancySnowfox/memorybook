@@ -7,17 +7,26 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
+    "rag:reindex": "node server/scripts/reindex-rag.js",
+    "video:convert": "node server/scripts/convert-mov-to-mp4.js",
     "test": "jest",
     "test:watch": "jest --watch"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^1.0.0-beta.10",
     "@aws-sdk/client-s3": "^3.990.0",
+    "@llamaindex/huggingface": "^0.1.32",
     "ai": "6.0.86",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "ejs": "^3.1.10",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "express-session": "^1.19.0",
+    "jszip": "^3.10.1",
+    "llamaindex": "^0.12.1",
+    "multer": "^1.4.5-lts.2",
+    "pdf-parse": "^2.4.5",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

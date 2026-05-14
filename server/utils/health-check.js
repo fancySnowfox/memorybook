@@ -1,17 +1,69 @@
+const DEFAULT_GRADIENT_BASE_URL = 'https://inference.do-ai.run/v1';
+
+function normalizeBaseUrl(baseUrl) {
+  return (baseUrl || DEFAULT_GRADIENT_BASE_URL).trim().replace(/\/+$/, '');
+}
+
+function isInferenceBaseUrl(baseUrl) {
+  return /inference\.do-ai\.run\/v1$/i.test(baseUrl);
+}
+
+function isApiV1BaseUrl(baseUrl) {
+  return /\/api\/v1$/i.test(baseUrl);
+}
+
+function buildModelsEndpoint(baseUrl) {
+  if (isInferenceBaseUrl(baseUrl) || isApiV1BaseUrl(baseUrl)) {
+    return `${baseUrl}/models`;
+  }
+
+  return `${baseUrl}/api/v1/models`;
+}
+
+function buildChatCompletionsEndpoint(baseUrl) {
+  if (isInferenceBaseUrl(baseUrl) || isApiV1BaseUrl(baseUrl)) {
+    return `${baseUrl}/chat/completions`;
+  }
+
+  return `${baseUrl}/api/v1/chat/completions`;
+}
+
 // Health check utility for Gradient API connectivity
-export async function checkApiConnectivity(baseUrl, apiKey, timeoutMs = 5000) {
+export async function checkApiConnectivity(baseUrl, apiKey, modelId = 'openai-gpt-oss-120b', timeoutMs = 5000) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
 
-    const response = await fetch(`${baseUrl}/models`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      signal: controller.signal,
-    });
+    const endpoint = isInferenceBaseUrl(normalizedBaseUrl)
+      ? buildModelsEndpoint(normalizedBaseUrl)
+      : buildChatCompletionsEndpoint(normalizedBaseUrl);
+
+    const requestOptions = isInferenceBaseUrl(normalizedBaseUrl)
+      ? {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          signal: controller.signal,
+        }
+      : {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: modelId,
+            messages: [{ role: 'user', content: 'health check' }],
+            max_tokens: 1,
+            stream: false,
+          }),
+          signal: controller.signal,
+        };
+
+    const response = await fetch(endpoint, requestOptions);
 
     clearTimeout(timeoutId);
 
@@ -19,7 +71,7 @@ export async function checkApiConnectivity(baseUrl, apiKey, timeoutMs = 5000) {
       return {
         accessible: false,
         statusCode: response.status,
-        message: `API returned status ${response.status}`,
+        message: `API returned status ${response.status} from ${endpoint}`,
       };
     }
 

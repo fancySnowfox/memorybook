@@ -1,20 +1,54 @@
-const DEFAULT_MODEL_ID = process.env.AI_MODEL_ID || 'openai-gpt-oss-120b';
+const DEFAULT_MODEL_ID = process.env.AI_MODEL_ID || 'router:knowledge-base-document-intelligence-01';
+const DEFAULT_TASK_ID = process.env.AI_TASK_ID || 'knowledge-base-customer-support';
+const DEFAULT_GRADIENT_BASE_URL = 'https://inference.do-ai.run/v1';
+import { retrieveRagContext, retrieveRagContextForUser } from '../utils/rag-llamaindex.js';
+
+function normalizeBaseUrl(baseUrl) {
+  return (baseUrl || DEFAULT_GRADIENT_BASE_URL).trim().replace(/\/+$/, '');
+}
+
+function isInferenceBaseUrl(baseUrl) {
+  return /inference\.do-ai\.run\/v1$/i.test(baseUrl);
+}
+
+function isApiV1BaseUrl(baseUrl) {
+  return /\/api\/v1$/i.test(baseUrl);
+}
+
+function buildModelsEndpoint(baseUrl) {
+  if (isInferenceBaseUrl(baseUrl) || isApiV1BaseUrl(baseUrl)) {
+    return `${baseUrl}/models`;
+  }
+
+  // Public router or agent endpoint style (base endpoint + /api/v1/...)
+  return `${baseUrl}/api/v1/models`;
+}
+
+function buildChatCompletionsEndpoint(baseUrl) {
+  if (isInferenceBaseUrl(baseUrl) || isApiV1BaseUrl(baseUrl)) {
+    return `${baseUrl}/chat/completions`;
+  }
+
+  // Public router or agent endpoint style (base endpoint + /api/v1/...)
+  return `${baseUrl}/api/v1/chat/completions`;
+}
 
 /**
  * Fetch available models from Gradient API
  */
 async function fetchAvailableModels() {
   const gradientApiKey = process.env.GRADIENT_API_KEY;
-  const gradientBaseUrl = process.env.GRADIENT_BASE_URL || 'https://inference.do-ai.run/v1';
+  const gradientBaseUrl = normalizeBaseUrl(process.env.GRADIENT_BASE_URL);
+  const modelsEndpoint = buildModelsEndpoint(gradientBaseUrl);
 
-  if (!gradientApiKey) {
+  if (!gradientApiKey) {  
     throw new Error('GRADIENT_API_KEY not configured');
   }
 
   try {
-    console.log('Fetching models from:', `${gradientBaseUrl}/models`);
+    console.log('Fetching models from:', modelsEndpoint);
     
-    const response = await fetch(`${gradientBaseUrl}/models`, {
+    const response = await fetch(modelsEndpoint, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${gradientApiKey}`,
@@ -26,6 +60,17 @@ async function fetchAvailableModels() {
 
     if (!response.ok) {
       const responseText = await response.text();
+
+      // Public router endpoints may not expose /models; fall back to configured default model.
+      if (!isInferenceBaseUrl(gradientBaseUrl) && (response.status === 403 || response.status === 404)) {
+        console.warn('Models endpoint unavailable for router endpoint; using configured default model only.');
+        return [{
+          id: DEFAULT_MODEL_ID,
+          name: DEFAULT_MODEL_ID,
+          owned_by: 'DigitalOcean Router',
+        }];
+      }
+
       console.error('API Error Response:', responseText);
       throw new Error(`API returned status ${response.status}: ${response.statusText} - ${responseText}`);
     }
@@ -82,9 +127,11 @@ async function fetchAvailableModels() {
  */
 async function getModels(req, res) {
   try {
+    const gradientBaseUrl = normalizeBaseUrl(process.env.GRADIENT_BASE_URL);
+
     console.log('=== Models Endpoint Called ===');
     console.log('GRADIENT_API_KEY configured:', !!process.env.GRADIENT_API_KEY);
-    console.log('GRADIENT_BASE_URL:', process.env.GRADIENT_BASE_URL || 'https://inference.do-ai.run/v1');
+    console.log('GRADIENT_BASE_URL:', gradientBaseUrl);
     
     const models = await fetchAvailableModels();
     
@@ -112,10 +159,22 @@ async function getModels(req, res) {
  * POST endpoint for chat streaming
  */
 async function chat(req, res) {
+  const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const startedAt = Date.now();
+
   try {
     // Validate environment
     const gradientApiKey = process.env.GRADIENT_API_KEY;
-    const gradientBaseUrl = process.env.GRADIENT_BASE_URL || 'https://inference.do-ai.run/v1';
+    const gradientBaseUrl = normalizeBaseUrl(process.env.GRADIENT_BASE_URL);
+    const chatEndpoint = buildChatCompletionsEndpoint(gradientBaseUrl);
+
+    console.log('[chat] request started', {
+      requestId,
+      method: req.method,
+      path: req.originalUrl,
+      baseUrl: gradientBaseUrl,
+      endpoint: chatEndpoint,
+    });
 
     if (!gradientApiKey) {
       console.error('Error: GRADIENT_API_KEY is not set');
@@ -134,20 +193,58 @@ async function chat(req, res) {
       });
     }
 
-    // Get model ID from request or use default
-    const modelId = req.body?.modelId || DEFAULT_MODEL_ID;
+    // Use fixed router model/task for chat retrieval workflow
+    const modelId = DEFAULT_MODEL_ID;
+    const taskId = DEFAULT_TASK_ID;
     const temperature = req.body?.temperature ?? 0.7;
     const maxTokens = parseInt(req.body?.maxTokens ?? 2000) || 2000;
 
-    console.log('Chat request:', { 
+    const latestUserMessage = [...messages].reverse().find((message) => message?.role === 'user')?.content;
+    const browserId = req.headers['x-browser-id'] || req.body?.browserId || '';
+    let messagesForModel = messages;
+    let ragUsed = false;
+    let ragSources = [];
+
+    if (typeof latestUserMessage === 'string' && latestUserMessage.trim().length > 0) {
+      try {
+        const rag = browserId
+          ? await retrieveRagContextForUser(latestUserMessage, browserId)
+          : await retrieveRagContext(latestUserMessage);
+        if (rag.used && rag.context) {
+          const ragSystemMessage = {
+            role: 'system',
+            content: `Use the retrieved local PDF context when relevant. If context is insufficient, say so and continue with best effort.\n\nRetrieved context:\n${rag.context}`,
+          };
+
+          messagesForModel = [ragSystemMessage, ...messages];
+          ragUsed = true;
+          ragSources = rag.sources;
+          console.log('RAG context attached:', { sourceCount: rag.sources.length, sources: rag.sources });
+          console.log('RAG attached text chunk:', {
+            requestId,
+            characterCount: rag.context.length,
+            text: rag.context,
+          });
+        } else {
+          console.log('[chat] RAG not used', { requestId });
+        }
+      } catch (ragError) {
+        console.warn('RAG retrieval failed, continuing without RAG:', ragError);
+      }
+    }
+
+    console.log('Chat request:', {
+      requestId,
       modelId, 
+      taskId,
       messageCount: messages.length, 
       temperature, 
-      maxTokens 
+      maxTokens,
+      ragUsed,
     });
 
     // Call Gradient API
-    const response = await fetch(`${gradientBaseUrl}/chat/completions`, {
+    const response = await fetch(chatEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -155,7 +252,8 @@ async function chat(req, res) {
       },
       body: JSON.stringify({
         model: modelId,
-        messages: messages,
+        task: taskId,
+        messages: messagesForModel,
         temperature: temperature,
         max_tokens: maxTokens,
         stream: false, // We'll handle streaming ourselves if needed
@@ -165,8 +263,6 @@ async function chat(req, res) {
     if (!response.ok) {
       const contentType = response.headers.get('content-type');
       let errorDetails = `HTTP ${response.status}: ${response.statusText}`;
-      let userMessage = '';
-      
       try {
         if (contentType?.includes('application/json')) {
           const errorData = await response.json();
@@ -197,6 +293,11 @@ async function chat(req, res) {
       }
 
       console.error('Gradient API error:', errorDetails);
+      console.error('[chat] request failed', {
+        requestId,
+        status: response.status,
+        elapsedMs: Date.now() - startedAt,
+      });
       return res.status(response.status).json({
         error: 'Gradient API error',
         details: errorDetails,
@@ -215,13 +316,26 @@ async function chat(req, res) {
       });
     }
 
-    // Send response as text stream format
+    // Send response as plain text
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.write(content);
     res.end();
 
+    console.log('[chat] request completed', {
+      requestId,
+      status: 200,
+      elapsedMs: Date.now() - startedAt,
+      ragUsed,
+      ragSourceCount: ragSources.length,
+    });
+
   } catch (error) {
     console.error('Chat error:', error);
+    console.error('[chat] request crashed', {
+      requestId,
+      elapsedMs: Date.now() - startedAt,
+      message: error instanceof Error ? error.message : 'Internal server error',
+    });
     if (!res.headersSent) {
       const message = error instanceof Error ? error.message : 'Internal server error';
       res.status(500).json({ 

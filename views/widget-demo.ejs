@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Widget — Embed Demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 40px;
+      background: #f3f4f6;
+      color: #111827;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 8px; }
+    p { color: #6b7280; margin-bottom: 24px; }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 28px;
+      max-width: 680px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      margin-bottom: 24px;
+    }
+    .card h2 { margin-top: 0; font-size: 1.1rem; }
+    pre {
+      background: #1f2937;
+      color: #f9fafb;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .badge {
+      display: inline-block;
+      background: #dbeafe;
+      color: #1e40af;
+      padding: 2px 10px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Chat Widget — Embed Demo</h1>
+  <p>This page demonstrates the pluggable chat widget. Click the 💬 button in the bottom-right to open it.</p>
+
+  <div class="card">
+    <span class="badge">Embed snippet</span>
+    <h2>Drop this into any webpage</h2>
+    <pre>&lt;script
+  src="https://your-server.com/js/chat-widget.js"
+  data-api-url="https://your-server.com/api/chat"
+  data-position="bottom-right"
+  data-title="Memory organizer"
+  data-theme="light"&gt;
+&lt;/script&gt;</pre>
+  </div>
+
+  <div class="card">
+    <span class="badge">Config options</span>
+    <h2>data-* attributes</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="text-align:left;border-bottom:1px solid #e5e7eb;">
+          <th style="padding:6px 12px 6px 0;">Attribute</th>
+          <th style="padding:6px 12px">Default</th>
+          <th style="padding:6px 0">Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding:6px 12px 6px 0;"><code>data-api-url</code></td><td style="padding:6px 12px"><code>/api/chat</code></td><td>Chat API endpoint URL</td></tr>
+        <tr><td style="padding:6px 12px 6px 0;"><code>data-position</code></td><td style="padding:6px 12px"><code>bottom-right</code></td><td><code>bottom-right</code> or <code>bottom-left</code></td></tr>
+        <tr><td style="padding:6px 12px 6px 0;"><code>data-title</code></td><td style="padding:6px 12px"><code>Memory organizer</code></td><td>Widget header title</td></tr>
+        <tr><td style="padding:6px 12px 6px 0;"><code>data-theme</code></td><td style="padding:6px 12px"><code>light</code></td><td><code>light</code> or <code>dark</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Widget mounted here — points to the local API -->
+  <script
+    src="/js/chat-widget.js"
+    data-api-url="/api/chat"
+    data-position="bottom-right"
+    data-title="Memorybook Creator AI"
+    data-theme="light">
+  </script>
+
+</body>
+</html>

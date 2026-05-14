@@ -1,0 +1,11 @@
+{
+  "files.associations": {
+    "*.ejs": "html"
+  },
+  "tailwindCSS.includeLanguages": {
+    "ejs": "html"
+  },
+  "css.customData": [
+    ".vscode/tailwind-at-rules.json"
+  ]
+}

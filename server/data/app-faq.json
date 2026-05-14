@@ -1,0 +1,101 @@
+[
+  {
+    "id": "service_purpose",
+    "questions": [
+      "What is Memorybook Creator?",
+      "What is this app for?",
+      "What does Memorybook Creator do?",
+      "Describe the purpose of this service",
+      "What is the Memorybook platform?",
+      "What can I use this for?"
+    ],
+    "answer": "Memorybook Creator is an app designed to help people organize their important memories, similar to building a structured biography source."
+  },
+  {
+    "id": "vault_limits",
+    "questions": [
+      "How much can I upload?",
+      "What is the upload limit?",
+      "What is the vault capacity?",
+      "Is there a storage quota?",
+      "How much storage do I get?",
+      "What is the maximum upload size?"
+    ],
+    "answer": "The default vault upload capacity is 10GB. If you need more than that, usage can be expanded with a pay-as-you-go model."
+  },
+  {
+    "id": "privacy_encryption",
+    "questions": [
+      "Is my data private?",
+      "Are my files encrypted?",
+      "How is my data protected?",
+      "Is this service secure?",
+      "What are the privacy policies?",
+      "Is my information safe?"
+    ],
+    "answer": "For Memorybook Creator, files are stored locally on the server and protected with encryption."
+  },
+  {
+    "id": "upload_count",
+    "questions": [
+      "How many files have I uploaded?",
+      "How many files are in my vault?",
+      "What is my upload count?",
+      "How many uploads do I have?"
+    ],
+    "answer": "__dynamic__"
+  },
+  {
+    "id": "supported_formats",
+    "questions": [
+      "What file types can I upload?",
+      "Which formats are supported?",
+      "Can I upload Word documents?",
+      "Do you support PDF files?",
+      "What file extensions are allowed?",
+      "Can I upload PowerPoint files?"
+    ],
+    "answer": "Supported uploads: PDF, DOCX, PPTX, XLSX, and MOV. Office files are converted to PDF on upload, and MOV files can be converted to MP4 in Video Converter."
+  },
+  {
+    "id": "storage_location",
+    "questions": [
+      "Where are my files stored?",
+      "Where do uploaded files go?",
+      "In which folder are my uploads kept?",
+      "Where is my vault located on the server?"
+    ],
+    "answer": "Your uploads are stored in your own browser-scoped folder on the server: uploads/<browser-id>/. You only see files tied to your current browser identity."
+  },
+  {
+    "id": "reset_folder_identity",
+    "questions": [
+      "How do I reset my folder identity?",
+      "How do I start a new browser session?",
+      "How can I create a new folder?",
+      "How do I change my browser ID?"
+    ],
+    "answer": "Use \"Reset Folder Identity\" in Files & Tools. That creates a new browser folder identity, so this browser stops showing files from the previous folder."
+  },
+  {
+    "id": "chat_modes",
+    "questions": [
+      "What is App mode?",
+      "What is General mode?",
+      "What is the difference between App and General mode?",
+      "When should I use App mode?",
+      "When should I use General mode?"
+    ],
+    "answer": "Chat modes: App mode prioritizes local app logic and uploaded-file context. General mode skips local routing/RAG and asks the broader AI model directly."
+  },
+  {
+    "id": "open_tools_drawer",
+    "questions": [
+      "How do I open the Files and Tools panel?",
+      "Where is the file uploader?",
+      "How do I show the drawer?",
+      "How do I access the tools panel?"
+    ],
+    "answer": "Click the top-right \"Files & Tools\" button to open the right-side drawer for uploads, conversion, and file browsing."
+  }
+]

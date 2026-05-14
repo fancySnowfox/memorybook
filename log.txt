@@ -2,14 +2,16 @@
 > snowfox-ai-chat@0.1.0 dev
 > node --watch server/index.js
 
+[startup] Port 3000 is in use. Retrying on 3001...
+[startup] Port 3001 is in use. Retrying on 3002...
 
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
+✓ Express server running at http://localhost:3002
+- Home:         http://localhost:3002/
+- Chat:         http://localhost:3002/chat
+- Widget demo:  http://localhost:3002/widget-demo
 
 [chat] request started {
-  requestId: 'mp3e6mm6-fap3km',
+  requestId: 'mp5x08rc-s4l4sz',
   method: 'POST',
   path: '/api/chat',
   baseUrl: 'https://inference.do-ai.run/v1',
@@ -25,23 +27,154 @@ RAG context attached: {
   sources: [
     'Chapter 10 - Nervous System - 12th - Law (2).pptx',
     'Chapter 11 - Cardiovascular System - 12th - Law.pptx',
-    'Chapter 5 - Digestive System - 12th - LAW.pptx'
+    'Chapter 10 - Nervous System - 12th - Law (2).pptx'
   ]
 }
 RAG attached text chunk: {
-  requestId: 'mp3e6mm6-fap3km',
-  characterCount: 2835,
+  requestId: 'mp5x08rc-s4l4sz',
+  characterCount: 5607,
   text: '[1] Source: Chapter 10 - Nervous System - 12th - Law (2).pptx\n' +
-    'Clinical Procedures X-ray tests: Cerebral angiography Computed tomography (CT) of the brain Other procedures: MRI—Magnetic resonance Imaging PET—Positron emission scan EEG—Electroencephalography Doppler ultrasound studies Abbreviations (Slide 1 of 3) Abbreviations (Slide 2 of 3) Abbreviations (Slide 3 of 3) Review Sheet (Slide 1 of 5) Review Sheet (Slide 2 of 5) Review Sheet (Slide 3 of 5) Review Sheet (Slide 4 of 5) Review Sheet (Slide 5 of 5) THE END Chapter 10\n' +
+    'The Language of Medicine 12 th  edition Chapter 10 – Nervous System Introduction (Slide 1 of 2) Nervous system: Complex: 10 billion nerve cells Voluntary and involuntary functions Carries electrical messages External and internal receptors Introduction (Slide 2 of 2) Nerve cells (neurons): Microscopic Collected into macroscopic nerves Carry electrical messages all over the body General Structure of the  Nervous System (Slide 1 of 3)  Two major divisions: Central nervous system—CNS Brain Spinal cord Peripheral nervous system—PNS Cranial nerves – Carry electrical impulses between the brain and the head & neck (except the  vagus  nerve – 10 th  cranial nerve) Spinal nerves – Carry impulses between the spinal cord & the chest, abdomen, and extremities. Plexuses Peripheral nerves throughout the body General Structure of the  Nervous System (Slide 2 of 3) Cranial and spinal nerves Sensory nerves carry messages toward the brain Motor nerves carry messages from the brain Mixed nerves carry both sensory and motor fibers  Sensory receptors General Structure of the  Nervous System (Slide 3 of 3) Autonomic nervous system: Carries impulses from the central nervous system to the organs Sympathetic  nerves stimulate the body under stress Parasympathetic  nerves balance the sympathetic system  Slow heart rate Lower blood pressure Divisions of the Central and  Peripheral Nervous System  Neurons, Nerves, and  Glia  (slide 1 of 5) Neuron  = Individual nerve cell Dendrite Cell nucleus Axon Myelin sheath Neurilemma Terminal end fibers (secrete neurotransmitters) Neurotransmitters transfer impulse across synapse Ganglia  = Small clusters of nerve cell bodies Neurons, Nerves, and  Glia  (slide 2 of 5 ) The anatomical parts of a neuron contain:  Dendrites  Cell body  Cell nucleus  Axon  Myelin sheath  Terminal end fibers  Synapse Answers are on the next slide Neurons, Nerves, and  Glia  (slide 3 of 5 ) The image shows the parts of a neuron.\n' +
     '\n' +
     '[2] Source: Chapter 11 - Cardiovascular System - 12th - Law.pptx\n' +
-    'The heart pumps 3 ounces of blood with each contraction. This means that about 5 quarts are pumped per minute (75 gallons an hour and about 2000 gallons a day). Heart Sounds Closure of valves associated with sounds  “ lubb-dubb, lubb-dubb ” lubb : closure of the tricuspid and mitral valves at the beginning of systole dubb : closure of the aortic and pulmonary valves at the end of systole murmur : an abnormal heart sound caused by improper valve closure Conduction System of the Heart  (slide 1 of 2) Sinoatrial node (SA node) : the pacemaker of the heart Pacemaker : origin of electrical impulse causing walls of the atria to contract and force blood into the ventricles (ending diastole)  Conduction System of the Heart  (slide 2 of 2 ) Atrioventricular   node (AV node): This sends the excitation wave to a bundle of specialized fibers called the  atrioventricular  bundle or Bundle of His.  Bundle of His (pronounced  “ hiss ” ):  Helps form conduction  myofibers  that extend to ventricle walls and stimulate them to contract, beginning systole. A short rest period follows. The pacemaker begins wave of excitation again. ECG or EKG (electrocardiogram): The record used to detect electrical changes in heart muscle as the heart beats . Electrocardiogram (slide 1 of 3) P wave  = spread of excitation wave over the atria just before contraction   QRS wave  = spread of excitation wave over the ventricles as the ventricles contract; T wave  = electrical recovery and relaxation of ventricles. A heart attack (myocardial infarction or MI) can be recognized by an elevation in the S-T segment of the ECG.\n' +
+    'Chapter 11 Cardiovascular System  Introduction Cardiovascular system:  delivers oxygen and nutrients to cells of body tissue Heart (muscular pump) Blood vessels (fuel line and transportation network) Blood Vessels and the  Circulation of Blood Arteries  are the vessels that lead away from the heart. Veins  have thinner walls than arteries and move deoxygenated blood toward the heart from the tissues. Capillaries  are the smallest vessels. They form the point of exchange for oxygen and nutrients into body cells and waste products coming from body cells.  Blood Vessels Blood Circulation/Systemic Circulation The Aorta and Arteries Anatomy of the Heart  Anatomical structures of the heart include:  Superior vena cava  Inferior vena cava  Right atrium  Tricuspid valve  Right ventricle  Pulmonary valve  Pulmonary artery  Pulmonary veins  Left atrium  Mitral valve  Left ventricle  Aortic valve  Aorta Major Valves of the Heart Tricuspid valve  (cusps are flaps of the valves): between the right atrium and right ventricle Pulmonary valve:  between the right ventricle and pulmonary artery Mitral valve:  between the left atrium and left ventricle Aortic valve:  between the left atrium and aorta Pathway of Blood  through the Heart Heartbeat Two phases of the heartbeat: Diastole:  relaxation Systole:  contraction The diastole-systole cardiac cycle occurs between 70 to 80 times per minute (100,000 times per day). The heart pumps 3 ounces of blood with each contraction. This means that about 5 quarts are pumped per minute (75 gallons an hour and about 2000 gallons a day).\n' +
     '\n' +
-    '[3] Source: Chapter 5 - Digestive System - 12th - LAW.pptx\n' +
-    'inflamed intestines Hemorrhoids  – swollen, twisted, varicose veins in the rectal region Ileus  – failure of peristalsis with resulting obstruction of the intestines Inflammatory bowel disease (IBD)  –   inflammation of the colon and small intestine Pathologic Conditions Lower Gastrointestinal Tract Small and Large Intestines (slide 5 of 5 ) Pathologic Conditions  Liver Gallbladder, and Pancreas (slide 1 of 2 ) Pathologic Conditions  Liver Gallbladder, and Pancreas (slide 2 of 2 ) Cholelithiasis  – gallstones in the gallbladder  THE END Chapter 5 DIGESTIVE SYSTEM'
+    '[3] Source: Chapter 10 - Nervous System - 12th - Law (2).pptx\n' +
+    'Review the path of a nervous impulse Neurons, Nerves, and  Glia  (slide 4 of 5 ) Glia  cells:  Maintain the health of the nervous system Do not transmit impulses Neurons, Nerves, and Glia (slide 5 of 5 ) Four types:   Astrocytes ( astroglial  cells) Microglia (microglial cells) Oligodendroglia ( oligodendroglial  cells) Ependymal cells These are the supportive, protective, & connective cells of the Central nervous system. The Brain (slide 1 of 7) The anatomical structures of the brain include:  Frontal lobe  Sulci  Gyri  Parietal lobe  Occipital lobe  Wernicke area  Temporal lobe Broca  area The Brain (slide 2 of 7 ) The brain is divided into right and left hemispheres. The brain consists of four major lobes: the frontal lobe, parietal lobe, temporal lobe, and occipital lobe . The Brain (slide 3 of 7 ) Cerebrum The largest section of the brain  Surface nerve cells called cerebral cortex Manages speech, vision, smell, movement, hearing, and thought The Brain (slide 4 of 7 ) Cerebellum  Coordinates voluntary movements  Maintains balance Thalamus  Integrates and monitors impulses from skin (pain) The Brain (slide 5 of 7 ) Hypothalamus Controls body temperature, sleep, appetite, sexual desire, and emotions Regulates release of hormones from the pituitary gland Monitors sympathetic and parasympathetic nervous systems The Brain (slide 6 of 7 ) Brainstem Pons Bridges the cerebrum and cerebellum with the rest of the brain Houses nerves for the face and eyes Midbrain Uppermost portion of the brainstem Contains pathways connecting the cerebrum with lower portions of brain The Brain (slide 7 of 7 ) Brainstem Medulla oblongata Connects the spinal cord to the brain Nerve tracts from side to side Regulates: Blood vessels Heart Respiratory system The Spinal Cord The spinal cord is the column of nervous tissue from the medulla oblongata to the second lumbar vertebra.'
 }
 Chat request: {
-  requestId: 'mp3e6mm6-fap3km',
+  requestId: 'mp5x08rc-s4l4sz',
+  modelId: 'router:knowledge-base-document-intelligence-01',
+  taskId: 'knowledge-base-customer-support',
+  messageCount: 1,
+  temperature: 0.7,
+  maxTokens: 2000,
+  ragUsed: true
+}
+[chat] request completed {
+  requestId: 'mp5x08rc-s4l4sz',
+  status: 200,
+  elapsedMs: 11195,
+  ragUsed: true,
+  ragSourceCount: 3
+}
+[chat] request started {
+  requestId: 'mp5xayge-jky88n',
+  method: 'POST',
+  path: '/api/chat',
+  baseUrl: 'https://inference.do-ai.run/v1',
+  endpoint: 'https://inference.do-ai.run/v1/chat/completions'
+}
+RAG context attached: {
+  sourceCount: 3,
+  sources: [
+    'Sign & Symptom.pdf',
+    'Chapter 5 - Digestive System - 12th - LAW.pptx',
+    'Chapter 13 - Blood System - 12th - Law - Tagged.pdf'
+  ]
+}
+RAG attached text chunk: {
+  requestId: 'mp5xayge-jky88n',
+  characterCount: 4381,
+  text: '[1] Source: Sign & Symptom.pdf\n' +
+    'Medical Terminology – HLSC 115\n' +
+    'The Difference Between a Sign & a Symptom\n' +
+    'The terms, signs and symptoms, refer to distinct medical terms with different medical meanings—even so;\n' +
+    'patients and the typical layperson frequently confuse the two. Even healthcare professionals may slip-up and\n' +
+    'use the words interchangeably.\n' +
+    'Signs – A Physician’s Diagnostic Tool\n' +
+    'Medical signs represent objective physiological patient conditions the doctor can detect or measure. When\n' +
+    'patients listen to their own bodies and verbalize their subjective symptoms, it then becomes the doctor’s job to\n' +
+    'find and interpret any relevant medical signs. Examples of signs include a patient’s measured body temperature,\n' +
+    'blood pressure, a visibly red or swollen throat, and anything else a physician can objectively observe, detect, or\n' +
+    'measure.\n' +
+    'Signs are objective, or external, factors – like blood pressure, rashes, or swelling – that can be seen or felt\n' +
+    'by the doctor or measured by an instrument.\n' +
+    'Symptoms – A Personal Patient Experience\n' +
+    'Only patients themselves can experience symptoms firsthand. Symptoms represent the concerns, feelings,\n' +
+    'aches, pains or reactions that compel patients to make an appointment with their doctor in the first\n' +
+    'place. Common medical symptoms used by patients to describe their unique physical complaints, or feelings, to\n' +
+    'a physician include things like fatigue, dizziness, shortness of breath, or a sore throat.\n' +
+    'Symptoms are subjective, or internal, conditions felt by the patient – like pain, headache, or nausea – but\n' +
+    'are not necessarily apparent in a physical examination.\n' +
+    'Symptoms and Signs – A Great Team\n' +
+    'During a physician examination, the doctor uses his specialized knowledge and experiential skills and\n' +
+    'equipment to objectively measure, detect, or observe signs and conditions that could possibly cause the patient’s\n' +
+    'symptoms. For example, if a patient tells his doctor that he feels hot; the doctor can both physically touch the\n' +
+    'patient’s skin and take a temperature measurement to determine if he has a fever. The heat, or flushing,\n' +
+    'experienced by the patient is a symptom; the fever, objectively observed and measured by the doctor, is a sign\n' +
+    'of a larger medical condition causing the fever.\n' +
+    '\n' +
+    '-- 1 of 1 --\n' +
+    '\n' +
+    '[2] Source: Chapter 5 - Digestive System - 12th - LAW.pptx\n' +
+    'inflamed intestines Hemorrhoids  – swollen, twisted, varicose veins in the rectal region Ileus  – failure of peristalsis with resulting obstruction of the intestines Inflammatory bowel disease (IBD)  –   inflammation of the colon and small intestine Pathologic Conditions Lower Gastrointestinal Tract Small and Large Intestines (slide 5 of 5 ) Pathologic Conditions  Liver Gallbladder, and Pancreas (slide 1 of 2 ) Pathologic Conditions  Liver Gallbladder, and Pancreas (slide 2 of 2 ) Cholelithiasis  – gallstones in the gallbladder  THE END Chapter 5 DIGESTIVE SYSTEM\n' +
+    '\n' +
+    '[3] Source: Chapter 13 - Blood System - 12th - Law - Tagged.pdf\n' +
+    'leading to hypochromia\n' +
+    '\n' +
+    '-- 32 of 53 --\n' +
+    '\n' +
+    'Copyright © 2021, 2017, 2014, 2011, 2007 Saunders, an imprint of Elsevier Inc. 33\n' +
+    'Types of Anemia (Slide 2 of 2)\n' +
+    '\n' +
+    '-- 33 of 53 --\n' +
+    '\n' +
+    'Copyright © 2021, 2017, 2014, 2011, 2007 Saunders, an imprint of Elsevier Inc. 34\n' +
+    'QUICK QUIZ (Slide 3\n' +
+    'of 3)\n' +
+    '3. What is the most common type\n' +
+    'of anemia?\n' +
+    'A. Hemolytic anemia\n' +
+    'B. Sickle cell anemia\n' +
+    'C. Iron deficiency anemia\n' +
+    'D. Aplastic anemia\n' +
+    '\n' +
+    '-- 34 of 53 --\n' +
+    '\n' +
+    'Copyright © 2021, 2017, 2014, 2011, 2007 Saunders, an imprint of Elsevier Inc. 35\n' +
+    'Other Diseases of Red\n' +
+    'Blood Cells\n' +
+    'Hemochromatosis:\n' +
+    'excess iron deposits\n' +
+    'throughout the\n' +
+    'body\n' +
+    'Polycythemia vera:\n' +
+    'general increase in\n' +
+    'red blood cells\n' +
+    '\n' +
+    '-- 35 of 53 --\n' +
+    '\n' +
+    'Copyright © 2021, 2017, 2014, 2011, 2007 Saunders, an imprint of Elsevier Inc. 36\n' +
+    'Disorders of Blood\n' +
+    'Clotting\n' +
+    'Hemophilia: excessive bleeding\n' +
+    'caused by hereditary lack of factors\n' +
+    'VIII and IX necessary for blood\n' +
+    'clotting. Patients often bleed into\n' +
+    'weight-bearing joints, especially\n' +
+    'the ankles and knees\n' +
+    'Purpura: multiple pinpoint\n' +
+    'hemorrhages and accumulation of\n' +
+    'blood under the skin\n' +
+    '\n' +
+    '-- 36 of 53 --\n' +
+    '\n' +
+    'Copyright © 2021, 2017, 2014, 2011, 2007 Saunders, an imprint of Elsevier Inc. 37\n' +
+    'Diseases of White Blood Cells:\n' +
+    'Leukemia\n' +
+    'Leukemia: an increase in cancerous white blood cells\n' +
+    '➢Acute myeloid leukemia (AML)\n' +
+    '➢Acute lymphoid leukemia (ALL)\n' +
+    '➢Chronic myeloid leukemia (CML)\n' +
+    '➢Chronic lymphoid leukemia (CLL)\n' +
+    '\n' +
+    '-- 37 of 53 --\n' +
+    '\n' +
+    'Copyright © 2021, 2017, 2014, 2011, 2007 Saunders,'
+}
+Chat request: {
+  requestId: 'mp5xayge-jky88n',
   modelId: 'router:knowledge-base-document-intelligence-01',
   taskId: 'knowledge-base-customer-support',
   messageCount: 3,
@@ -50,339 +183,329 @@ Chat request: {
   ragUsed: true
 }
 [chat] request completed {
-  requestId: 'mp3e6mm6-fap3km',
+  requestId: 'mp5xayge-jky88n',
   status: 200,
-  elapsedMs: 39736,
+  elapsedMs: 13548,
   ragUsed: true,
   ragSourceCount: 3
 }
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
 [chat] request started {
-  requestId: 'mp4vbd6s-7xhwen',
+  requestId: 'mp5xdguw-sc4tjx',
   method: 'POST',
   path: '/api/chat',
   baseUrl: 'https://inference.do-ai.run/v1',
   endpoint: 'https://inference.do-ai.run/v1/chat/completions'
 }
-RAG files changed. Rebuilding index... {
-  previousSignature: '',
-  nextSignature: 'Chapter 10 - Nervous System - 12th - Law (2).pptx:35300584:1774898144000|Chapter 11 - Cardiovascular System - 12th - Law.pptx:38955080:1775682134000|Chapter 13 - Blood System - 12th - Law - Tagged.pdf:1167604:1777400560000|Chapter 14 - Lymphatic & Immune Systems -12th - LAW.pptx:36872129:1777405352000|Chapter 15 - Musculoskeletal System - 12th - Law.pptx:50382543:1778000740000|Chapter 3 - SUFFIXES.pptx:37358600:1772734376000|Chapter 4 - PREFIXES.pptx:23891246:1772734352000|Chapter 5 - Digestive System - 12th - LAW.pptx:56785307:1773002864000|Chapter 6 - Additional Suffixes - Digestive System - 12th - LAW.pptx:14141222:1773002874000|Chapter 8 - Female Reproductive System - 12th - Law.pptx:38267608:1774312486000|Chapter 9 - Male Reproductive System - 12th - Law.pptx:22192964:1774312516000|Sign & Symptom.pdf:184395:1772734224000'
-}
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-[chat] request started {
-  requestId: 'mp5uynuv-atcqba',
-  method: 'POST',
-  path: '/api/chat',
-  baseUrl: 'https://inference.do-ai.run/v1',
-  endpoint: 'https://inference.do-ai.run/v1/chat/completions'
-}
-RAG files changed. Rebuilding index... {
-  previousSignature: '',
-  nextSignature: 'Chapter 10 - Nervous System - 12th - Law (2).pptx:35300584:1774898144000|Chapter 11 - Cardiovascular System - 12th - Law.pptx:38955080:1775682134000|Chapter 13 - Blood System - 12th - Law - Tagged.pdf:1167604:1777400560000|Chapter 14 - Lymphatic & Immune Systems -12th - LAW.pptx:36872129:1777405352000|Chapter 15 - Musculoskeletal System - 12th - Law.pptx:50382543:1778000740000|Chapter 3 - SUFFIXES.pptx:37358600:1772734376000|Chapter 4 - PREFIXES.pptx:23891246:1772734352000|Chapter 5 - Digestive System - 12th - LAW.pptx:56785307:1773002864000|Chapter 6 - Additional Suffixes - Digestive System - 12th - LAW.pptx:14141222:1773002874000|Chapter 8 - Female Reproductive System - 12th - Law.pptx:38267608:1774312486000|Chapter 9 - Male Reproductive System - 12th - Law.pptx:22192964:1774312516000|Sign & Symptom.pdf:184395:1772734224000'
-}
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-[chat] request started {
-  requestId: 'mp5uzlp8-t0ezvl',
-  method: 'POST',
-  path: '/api/chat',
-  baseUrl: 'https://inference.do-ai.run/v1',
-  endpoint: 'https://inference.do-ai.run/v1/chat/completions'
-}
-RAG files changed. Rebuilding index... {
-  previousSignature: '',
-  nextSignature: 'Chapter 10 - Nervous System - 12th - Law (2).pptx:35300584:1774898144000|Chapter 11 - Cardiovascular System - 12th - Law.pptx:38955080:1775682134000|Chapter 13 - Blood System - 12th - Law - Tagged.pdf:1167604:1777400560000|Chapter 14 - Lymphatic & Immune Systems -12th - LAW.pptx:36872129:1777405352000|Chapter 15 - Musculoskeletal System - 12th - Law.pptx:50382543:1778000740000|Chapter 3 - SUFFIXES.pptx:37358600:1772734376000|Chapter 4 - PREFIXES.pptx:23891246:1772734352000|Chapter 5 - Digestive System - 12th - LAW.pptx:56785307:1773002864000|Chapter 6 - Additional Suffixes - Digestive System - 12th - LAW.pptx:14141222:1773002874000|Chapter 8 - Female Reproductive System - 12th - Law.pptx:38267608:1774312486000|Chapter 9 - Male Reproductive System - 12th - Law.pptx:22192964:1774312516000|Sign & Symptom.pdf:184395:1772734224000'
-}
-dtype not specified for "model". Using the default dtype (fp32) for this device (cpu).
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-[chat] request started {
-  requestId: 'mp5uzqbs-v7iskr',
-  method: 'POST',
-  path: '/api/chat',
-  baseUrl: 'https://inference.do-ai.run/v1',
-  endpoint: 'https://inference.do-ai.run/v1/chat/completions'
-}
-RAG files changed. Rebuilding index... {
-  previousSignature: '',
-  nextSignature: 'Chapter 10 - Nervous System - 12th - Law (2).pptx:35300584:1774898144000|Chapter 11 - Cardiovascular System - 12th - Law.pptx:38955080:1775682134000|Chapter 13 - Blood System - 12th - Law - Tagged.pdf:1167604:1777400560000|Chapter 14 - Lymphatic & Immune Systems -12th - LAW.pptx:36872129:1777405352000|Chapter 15 - Musculoskeletal System - 12th - Law.pptx:50382543:1778000740000|Chapter 3 - SUFFIXES.pptx:37358600:1772734376000|Chapter 4 - PREFIXES.pptx:23891246:1772734352000|Chapter 5 - Digestive System - 12th - LAW.pptx:56785307:1773002864000|Chapter 6 - Additional Suffixes - Digestive System - 12th - LAW.pptx:14141222:1773002874000|Chapter 8 - Female Reproductive System - 12th - Law.pptx:38267608:1774312486000|Chapter 9 - Male Reproductive System - 12th - Law.pptx:22192964:1774312516000|Sign & Symptom.pdf:184395:1772734224000'
-}
-dtype not specified for "model". Using the default dtype (fp32) for this device (cpu).
 RAG context attached: {
   sourceCount: 3,
   sources: [
-    'Chapter 10 - Nervous System - 12th - Law (2).pptx',
-    'Chapter 10 - Nervous System - 12th - Law (2).pptx',
-    'Chapter 11 - Cardiovascular System - 12th - Law.pptx'
+    'Chapter 3 - SUFFIXES.pptx',
+    'Chapter 4 - PREFIXES.pptx',
+    'Chapter 13 - Blood System - 12th - Law - Tagged.pdf'
   ]
 }
 RAG attached text chunk: {
-  requestId: 'mp5uzqbs-v7iskr',
-  characterCount: 5607,
-  text: '[1] Source: Chapter 10 - Nervous System - 12th - Law (2).pptx\n' +
-    'The Language of Medicine 12 th  edition Chapter 10 – Nervous System Introduction (Slide 1 of 2) Nervous system: Complex: 10 billion nerve cells Voluntary and involuntary functions Carries electrical messages External and internal receptors Introduction (Slide 2 of 2) Nerve cells (neurons): Microscopic Collected into macroscopic nerves Carry electrical messages all over the body General Structure of the  Nervous System (Slide 1 of 3)  Two major divisions: Central nervous system—CNS Brain Spinal cord Peripheral nervous system—PNS Cranial nerves – Carry electrical impulses between the brain and the head & neck (except the  vagus  nerve – 10 th  cranial nerve) Spinal nerves – Carry impulses between the spinal cord & the chest, abdomen, and extremities. Plexuses Peripheral nerves throughout the body General Structure of the  Nervous System (Slide 2 of 3) Cranial and spinal nerves Sensory nerves carry messages toward the brain Motor nerves carry messages from the brain Mixed nerves carry both sensory and motor fibers  Sensory receptors General Structure of the  Nervous System (Slide 3 of 3) Autonomic nervous system: Carries impulses from the central nervous system to the organs Sympathetic  nerves stimulate the body under stress Parasympathetic  nerves balance the sympathetic system  Slow heart rate Lower blood pressure Divisions of the Central and  Peripheral Nervous System  Neurons, Nerves, and  Glia  (slide 1 of 5) Neuron  = Individual nerve cell Dendrite Cell nucleus Axon Myelin sheath Neurilemma Terminal end fibers (secrete neurotransmitters) Neurotransmitters transfer impulse across synapse Ganglia  = Small clusters of nerve cell bodies Neurons, Nerves, and  Glia  (slide 2 of 5 ) The anatomical parts of a neuron contain:  Dendrites  Cell body  Cell nucleus  Axon  Myelin sheath  Terminal end fibers  Synapse Answers are on the next slide Neurons, Nerves, and  Glia  (slide 3 of 5 ) The image shows the parts of a neuron.\n' +
+  requestId: 'mp5xdguw-sc4tjx',
+  characterCount: 4299,
+  text: '[1] Source: Chapter 3 - SUFFIXES.pptx\n' +
+    'Erythrocytes 2.  Leukocytes   3.  Thrombocytes or   platelets Red blood cells White blood cells\t Clotting cells A Closer Look:  Blood Cells (Slide 2 of 8) A Closer Look:  Blood Cells (Slide 3 of 8) A Closer Look:  Blood Cells (Slide 4 of 8) Granulocytes  – three types  Eosinophils Basophils Neutrophils A Closer Look:  Blood Cells (Slide 5 of 8) \tMononuclear cells  – two types  Lymphocytes Monocytes A Closer Look:  Blood Cells (Slide 6 of 8) A Closer Look:  Blood Cells (Slide 7 of 8) A Closer Look:   Blood Cells (Slide 8 of 8)\t A Closer Look:  Acromegaly A Closer Look:   Laparoscopy A Closer Look:  Adenoids        QUICK QUIZ  (Slide 1 of 3)\t 1.  Which term means fear of heights? \tA.  Acromegaly \tB.  Hydrophobia \tC.  Acrophobia \tD.  Agoraphobia        QUICK QUIZ   (Slide 2 of 3)\t 2.  A rectocele is: a herniation of the intestines protrusion of a portion of the rectum toward the vaginal wall a hiatal hernia an  omphalocele       QUICK QUIZ (Slide 3 of 3) \t 3.  Which type of blood cells are necessary for clotting? \tA.  Erythrocytes \tB.  Granulocytes \tC.  Monocytes \tD.  Thrombocytes  THE END OF CHAPTER 3\n' +
     '\n' +
-    '[2] Source: Chapter 10 - Nervous System - 12th - Law (2).pptx\n' +
-    'Review the path of a nervous impulse Neurons, Nerves, and  Glia  (slide 4 of 5 ) Glia  cells:  Maintain the health of the nervous system Do not transmit impulses Neurons, Nerves, and Glia (slide 5 of 5 ) Four types:   Astrocytes ( astroglial  cells) Microglia (microglial cells) Oligodendroglia ( oligodendroglial  cells) Ependymal cells These are the supportive, protective, & connective cells of the Central nervous system. The Brain (slide 1 of 7) The anatomical structures of the brain include:  Frontal lobe  Sulci  Gyri  Parietal lobe  Occipital lobe  Wernicke area  Temporal lobe Broca  area The Brain (slide 2 of 7 ) The brain is divided into right and left hemispheres. The brain consists of four major lobes: the frontal lobe, parietal lobe, temporal lobe, and occipital lobe . The Brain (slide 3 of 7 ) Cerebrum The largest section of the brain  Surface nerve cells called cerebral cortex Manages speech, vision, smell, movement, hearing, and thought The Brain (slide 4 of 7 ) Cerebellum  Coordinates voluntary movements  Maintains balance Thalamus  Integrates and monitors impulses from skin (pain) The Brain (slide 5 of 7 ) Hypothalamus Controls body temperature, sleep, appetite, sexual desire, and emotions Regulates release of hormones from the pituitary gland Monitors sympathetic and parasympathetic nervous systems The Brain (slide 6 of 7 ) Brainstem Pons Bridges the cerebrum and cerebellum with the rest of the brain Houses nerves for the face and eyes Midbrain Uppermost portion of the brainstem Contains pathways connecting the cerebrum with lower portions of brain The Brain (slide 7 of 7 ) Brainstem Medulla oblongata Connects the spinal cord to the brain Nerve tracts from side to side Regulates: Blood vessels Heart Respiratory system The Spinal Cord The spinal cord is the column of nervous tissue from the medulla oblongata to the second lumbar vertebra.\n' +
+    '[2] Source: Chapter 4 - PREFIXES.pptx\n' +
+    'The Language of Medicine 12 th  edition Davi-Ellen Chabner Chapter 4 Prefixes Chapter Goals Combining Forms  (Slide 1 of 3) Combining Forms   (Slide 2 of 3) Combining Forms (Slide 3 of 3) Suffixes  (Slide 1 of 2) Suffixes (Slide 2 of 2) Chapter 4 Lesson 4.1 Prefixes and Terminology (Slide 1 of 9) Prefixes and Terminology (Slide 2 of 9) Prefixes and Terminology (Slide 3 of 9) Prefixes and Terminology (Slide 4 of 9) Prefixes and Terminology (Slide 5 of 9) Prefixes and Terminology (Slide 6 of 9) Prefixes and Terminology (Slide 7 of 9) Prefixes and Terminology (Slide 8 of 9) Prefixes and Terminology (Slide 9 of 9)        QUICK QUIZ  (Slide 1 of 3)\t 1.  Which term means a muscle that draws a limb TOWARD the body? (Watch spelling!) \tA.   Adducter \tB.  Abductor \tC.  Adductor \tD.   Abducter QUICK QUIZ (Slide 2 of 3 ) \t 2.  Which term means painful breathing? \tA.  Dyspnea \tB.  Dysplasia \tC.  Apnea \tD.   Cephalgia        QUICK QUIZ  (Slide 3 of 3)\t 3.  Antibodies are made by what type of cell? \tA.  Platelets \tB.  Leukocytes \tC.  Thrombocytes \tD.  Erythrocytes Background on Rh Condition Antigen:  A substance, usually foreign to the body, that stimulates the production of antibodies.  Antibodies:  Protein substances made by white blood cells in response to the presence of foreign antigens. A Closer Look:   Antigens and Antibodies; the Rh Condition Rh Condition  (Slide 1 of 2) Rh Condition:  An antigen-antibody condition that develops when there is a difference in Rh blood factor between that of the pregnant mother (Rh negative) and that of the fetus (Rh positive).\n' +
     '\n' +
-    '[3] Source: Chapter 11 - Cardiovascular System - 12th - Law.pptx\n' +
-    'Chapter 11 Cardiovascular System  Introduction Cardiovascular system:  delivers oxygen and nutrients to cells of body tissue Heart (muscular pump) Blood vessels (fuel line and transportation network) Blood Vessels and the  Circulation of Blood Arteries  are the vessels that lead away from the heart. Veins  have thinner walls than arteries and move deoxygenated blood toward the heart from the tissues. Capillaries  are the smallest vessels. They form the point of exchange for oxygen and nutrients into body cells and waste products coming from body cells.  Blood Vessels Blood Circulation/Systemic Circulation The Aorta and Arteries Anatomy of the Heart  Anatomical structures of the heart include:  Superior vena cava  Inferior vena cava  Right atrium  Tricuspid valve  Right ventricle  Pulmonary valve  Pulmonary artery  Pulmonary veins  Left atrium  Mitral valve  Left ventricle  Aortic valve  Aorta Major Valves of the Heart Tricuspid valve  (cusps are flaps of the valves): between the right atrium and right ventricle Pulmonary valve:  between the right ventricle and pulmonary artery Mitral valve:  between the left atrium and left ventricle Aortic valve:  between the left atrium and aorta Pathway of Blood  through the Heart Heartbeat Two phases of the heartbeat: Diastole:  relaxation Systole:  contraction The diastole-systole cardiac cycle occurs between 70 to 80 times per minute (100,000 times per day). The heart pumps 3 ounces of blood with each contraction. This means that about 5 quarts are pumped per minute (75 gallons an hour and about 2000 gallons a day).'
+    '[3] Source: Chapter 13 - Blood System - 12th - Law - Tagged.pdf\n' +
+    '2017, 2014, 2011, 2007 Saunders, an imprint of Elsevier Inc. 43\n' +
+    'Clinical\n' +
+    'Procedures\n' +
+    'Apheresis: separation of blood into\n' +
+    'component parts and removal of a select\n' +
+    'part from the blood\n' +
+    'Blood transfusion: whole blood or cells\n' +
+    'taken from a donor and infused into a\n' +
+    'patient\n' +
+    'Bone marrow biopsy: microscopic\n' +
+    'examination of a core of bone marrow\n' +
+    'removed with a needle\n' +
+    'Hematopoietic stem cell transplantation:\n' +
+    'peripheral stem cells from a compatible\n' +
+    'donor administered into a recipient\n' +
+    '\n' +
+    '-- 43 of 53 --\n' +
+    '\n' +
+    'Copyright © 2021, 2017, 2014, 2011, 2007 Saunders, an imprint of Elsevier Inc. 44\n' +
+    'Abbreviations\n' +
+    '(Slide 1 of 5)\n' +
+    'Abbreviation Meaning\n' +
+    'Ab Antibody\n' +
+    'ABMT Autologous bone marrow\n' +
+    'transplantation\n' +
+    'ABO Four main blood types – A, B, AB,\n' +
+    'and O\n' +
+    'ALL Acute lymphoid leukemia\n' +
+    'AML Acute myeloid leukemia\n' +
+    'ANC Absolute neutrophil count\n' +
+    'ASCT Autologous stem cell\n' +
+    'transplantation\n' +
+    'banda Immature white blood cells\n' +
+    '(granulocytes)\n' +
+    'baso Basophils\n' +
+    'BMT Bone marrow transplantation\n' +
+    '\n' +
+    '-- 44 of 53 --\n' +
+    '\n' +
+    'Copyright © 2021, 2017, 2014, 2011, 2007 Saunders, an imprint of Elsevier Inc. 45\n' +
+    'Abbreviations\n' +
+    '(Slide 2 of 5)\n' +
+    'Abbreviation Meaning\n' +
+    'CBC Complete blood count\n' +
+    'CLL Chronic lymphoid leukemia\n' +
+    'CML Chronic myeloid leukemia\n' +
+    'DIC Disseminated intravascular coagulation\n' +
+    'diff Differential count (white blood cells)\n' +
+    'EBV Epstein-Barr virus\n' +
+    'eos Eosinophils\n' +
+    'EPO Erythropoietin\n' +
+    'ESR Erythrocyte sedimentation rate\n' +
+    'Fe Iron\n' +
+    '\n' +
+    '-- 45 of 53 --\n' +
+    '\n' +
+    'Copyright © 2021, 2017, 2014, 2011, 2007 Saunders, an imprint of Elsevier Inc.'
 }
 Chat request: {
-  requestId: 'mp5uzqbs-v7iskr',
+  requestId: 'mp5xdguw-sc4tjx',
   modelId: 'router:knowledge-base-document-intelligence-01',
   taskId: 'knowledge-base-customer-support',
-  messageCount: 2,
+  messageCount: 5,
   temperature: 0.7,
   maxTokens: 2000,
   ragUsed: true
 }
 [chat] request completed {
-  requestId: 'mp5uzqbs-v7iskr',
+  requestId: 'mp5xdguw-sc4tjx',
   status: 200,
-  elapsedMs: 15346,
+  elapsedMs: 7750,
   ragUsed: true,
   ragSourceCount: 3
 }
 Restarting 'server/index.js'
+Restarting 'server/index.js'
+[startup] Port 3000 is in use. Retrying on 3001...
+[startup] Port 3001 is in use. Retrying on 3002...
 
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
+✓ Express server running at http://localhost:3002
+- Home:         http://localhost:3002/
+- Chat:         http://localhost:3002/chat
+- Widget demo:  http://localhost:3002/widget-demo
 
 Restarting 'server/index.js'
+[startup] Port 3000 is in use. Retrying on 3001...
 
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
+✓ Express server running at http://localhost:3001
+- Home:         http://localhost:3001/
+- Chat:         http://localhost:3001/chat
+- Widget demo:  http://localhost:3001/widget-demo
 
 Restarting 'server/index.js'
+[startup] Port 3000 is in use. Retrying on 3001...
 
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
-
-Restarting 'server/index.js'
-
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
+✓ Express server running at http://localhost:3001
+- Home:         http://localhost:3001/
+- Chat:         http://localhost:3001/chat
+- Widget demo:  http://localhost:3001/widget-demo
 
 Restarting 'server/index.js'
+[startup] Port 3000 is in use. Retrying on 3001...
 
-✓ Express server running at http://localhost:3000
-- Home:         http://localhost:3000/
-- Chat:         http://localhost:3000/chat
-- Widget demo:  http://localhost:3000/widget-demo
+✓ Express server running at http://localhost:3001
+- Home:         http://localhost:3001/
+- Chat:         http://localhost:3001/chat
+- Widget demo:  http://localhost:3001/widget-demo
 
 Restarting 'server/index.js'
-node:events:486
-      throw er; // Unhandled 'error' event
-      ^
+[startup] Port 3000 is in use. Retrying on 3001...
+[startup] Port 3001 is in use. Retrying on 3002...
+[startup] Port 3002 is in use. Retrying on 3003...
 
-Error: listen EADDRINUSE: address already in use :::3000
-    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
-    at listenInCluster (node:net:1997:12)
-    at Server.listen (node:net:2102:7)
-    at app.listen (C:\sources\git\memorybook\node_modules\express\lib\application.js:635:24)
-    at file:///C:/sources/git/memorybook/server/index.js:266:5
-    at ModuleJob.run (node:internal/modules/esm/module_job:413:25)
-    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
-    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:660:26)
-    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
-Emitted 'error' event on Server instance at:
-    at emitErrorNT (node:net:1976:8)
-    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
-  code: 'EADDRINUSE',
-  errno: -4091,
-  syscall: 'listen',
-  address: '::',
-  port: 3000
+✓ Express server running at http://localhost:3003
+- Home:         http://localhost:3003/
+- Chat:         http://localhost:3003/chat
+- Widget demo:  http://localhost:3003/widget-demo
+
+Restarting 'server/index.js'
+[startup] Port 3000 is in use. Retrying on 3001...
+
+✓ Express server running at http://localhost:3001
+- Home:         http://localhost:3001/
+- Chat:         http://localhost:3001/chat
+- Widget demo:  http://localhost:3001/widget-demo
+
+Restarting 'server/index.js'
+[startup] Port 3000 is in use. Retrying on 3001...
+[startup] Port 3001 is in use. Retrying on 3002...
+
+✓ Express server running at http://localhost:3002
+- Home:         http://localhost:3002/
+- Chat:         http://localhost:3002/chat
+- Widget demo:  http://localhost:3002/widget-demo
+
+Restarting 'server/index.js'
+Restarting 'server/index.js'
+Restarting 'server/index.js'
+[startup] Port 3000 is in use. Retrying on 3001...
+
+✓ Express server running at http://localhost:3001
+- Home:         http://localhost:3001/
+- Chat:         http://localhost:3001/chat
+- Widget demo:  http://localhost:3001/widget-demo
+
+Restarting 'server/index.js'
+[startup] Port 3000 is in use. Retrying on 3001...
+
+✓ Express server running at http://localhost:3001
+- Home:         http://localhost:3001/
+- Chat:         http://localhost:3001/chat
+- Widget demo:  http://localhost:3001/widget-demo
+
+Restarting 'server/index.js'
+[startup] Port 3000 is in use. Retrying on 3001...
+[startup] Port 3001 is in use. Retrying on 3002...
+[startup] Port 3002 is in use. Retrying on 3003...
+
+✓ Express server running at http://localhost:3003
+- Home:         http://localhost:3003/
+- Chat:         http://localhost:3003/chat
+- Widget demo:  http://localhost:3003/widget-demo
+
+Restarting 'server/index.js'
+[startup] Port 3000 is in use. Retrying on 3001...
+[startup] Port 3001 is in use. Retrying on 3002...
+
+✓ Express server running at http://localhost:3002
+- Home:         http://localhost:3002/
+- Chat:         http://localhost:3002/chat
+- Widget demo:  http://localhost:3002/widget-demo
+
+[faq-matcher] pre-computing embeddings for 45 FAQ questions…
+dtype not specified for "model". Using the default dtype (fp32) for this device (cpu).
+[faq-matcher] ready — 45 vectors cached
+[chat] request started {
+  requestId: 'mp5ynp5p-v0qs3h',
+  method: 'POST',
+  path: '/api/chat',
+  baseUrl: 'https://inference.do-ai.run/v1',
+  endpoint: 'https://inference.do-ai.run/v1/chat/completions'
 }
+[faq-matcher] matched { faqId: 'storage_location', score: '0.733' }
+[chat] locally answered FAQ (semantic) {
+  requestId: 'mp5ynp5p-v0qs3h',
+  faqId: 'storage_location',
+  score: '0.733',
+  scope: 'app'
+}
+[chat] request started {
+  requestId: 'mp5yo0yk-aq4uz7',
+  method: 'POST',
+  path: '/api/chat',
+  baseUrl: 'https://inference.do-ai.run/v1',
+  endpoint: 'https://inference.do-ai.run/v1/chat/completions'
+}
+[faq-matcher] best score below threshold { score: '0.662', threshold: 0.72 }
+dtype not specified for "model". Using the default dtype (fp32) for this device (cpu).
+[RAG] user files context found: {
+  safeId: 'b_mp5wzyhq_k8pcume4',
+  sources: [ '1778791502993-Categorizing_Medical_Terms.pdf' ]
+}
+RAG context attached: {
+  sourceCount: 1,
+  sources: [ '1778791502993-Categorizing_Medical_Terms.pdf' ]
+}
+RAG attached text chunk: {
+  requestId: 'mp5yo0yk-aq4uz7',
+  characterCount: 475,
+  text: '[1] Source: 1778791502993-Categorizing_Medical_Terms.pdf\n' +
+    'Categorizing Medical Terms\n' +
+    'Medical Terminology\n' +
+    '1 Categorizing – Medical Terms\n' +
+    'Diagnostic term: (sign, symptom, disease condition,\n' +
+    'diagnosis) this term describes what is wrong with\n' +
+    'the patient);\n' +
+    'A & P – anatomical term: (anatomy or physiological\n' +
+    'term);\n' +
+    'Procedure or treatment term: (include terms related\n' +
+    'to a procedure such as instruments);\n' +
+    'Miscellaneous term: (include terms not classifiable\n' +
+    'elsewhere).\n' +
+    '\n' +
+    '-- 1 of 1 --'
+}
+Chat request: {
+  requestId: 'mp5yo0yk-aq4uz7',
+  modelId: 'router:knowledge-base-document-intelligence-01',
+  taskId: 'knowledge-base-customer-support',
+  messageCount: 7,
+  temperature: 0.7,
+  maxTokens: 2000,
+  scope: 'app',
+  ragUsed: true
+}
+[chat] inference response received {
+  requestId: 'mp5yo0yk-aq4uz7',
+  status: 200,
+  contentType: 'application/json',
+  bodyLength: 2516,
+  bodyPreview: '{"choices":[{"finish_reason":"stop","index":0,"logprobs":null,"message":{"content":"Based on the retrieved context from your uploaded file, **\\"Categorizing_Medical_Terms.pdf\\"**, here is a summary:\\n\\nThe document outlines a system for classifying medical terminology into four distinct categories:\\n\\n1.  **Diagnostic Terms**: These describe what is wrong with the patient, including signs, symptoms, disease conditions, and diagnoses.\\n2.  **A \\u0026 P (Anatomical Terms)**: These refer to anatomy or physiological terms.\\n3.  **Procedure or Treatment Terms**: These relate to medical procedures, including associated instruments.\\n4.  **Miscellaneous Terms**: These include any terms that do not fit into the other classifications.","reasoning_content":"The user is asking for a summary of the file they just uploaded.\\nThe context provided shows one file: \\"1778791502993-Categorizing_Medical_Terms.pdf\\".\\nThe content provided in the \\"Retrieved context\\" section is:\\n[1] Source: 1778791502993-Categorizing_Medical_Terms.pdf\\nCategorizing Medical Terms\\nMedical Terminology\\n1 Categorizing – Medical Terms\\nDiagnostic term: (sign, symptom, disease condition,\\ndiagnosis) this term describes what is wrong with\\nthe patient);\\nA \\u0026 P – anatomical term: (anatomy or physiological\\nterm);\\nProcedure or treatment term: (include terms related\\nto a procedure such as instruments);\\nMiscellaneous term: (include terms not classifiable\\nelsewhere).\\n\\nThis looks like a short excerpt or a page from a document about medical terminology.\\n\\nThe user wants a summary. I should base the summary on the provided context.\\n\\nContent analysis:\\nTitle: Categorizing Medical Terms\\nSubject: Medical Terminology\\nMain content: A classification system for medical terms into four categories.\\nCategories:\\n1. Diagnostic term: Describes what is wrong with the patient (signs, symptoms, disease conditions, diagnosis).\\n2. A \\u0026 P – anatomical term: Relates to anatomy or physiology.\\n3. Procedure or tre'
+}
+[chat] request completed {
+  requestId: 'mp5yo0yk-aq4uz7',
+  status: 200,
+  elapsedMs: 23913,
+  ragUsed: true,
+  ragSourceCount: 1
+}
+Restarting 'server/index.js'
+[startup] Port 3000 is in use. Retrying on 3001...
+[startup] Port 3001 is in use. Retrying on 3002...
+[startup] Port 3002 is in use. Retrying on 3003...
 
-Node.js v24.12.0
-Failed running 'server/index.js'. Waiting for file changes before restarting...
+✓ Express server running at http://localhost:3003
+- Home:         http://localhost:3003/
+- Chat:         http://localhost:3003/chat
+- Widget demo:  http://localhost:3003/widget-demo
+
+[faq-matcher] pre-computing embeddings for 45 FAQ questions…
+dtype not specified for "model". Using the default dtype (fp32) for this device (cpu).
+[faq-matcher] ready — 45 vectors cached
+mo
+
+Restarting 'server/index.js'
+[startup] Port 3000 is in use. Retrying on 3001...
+[startup] Port 3001 is in use. Retrying on 3002...
+
+✓ Express server running at http://localhost:3002
+- Home:         http://localhost:3002/
+- Chat:         http://localhost:3002/chat
+- Widget demo:  http://localhost:3002/widget-demo
+
+[chat] request started {
+  requestId: 'mp5ymzca-t3hx2h',
+  method: 'POST',
+  path: '/api/chat',
+  baseUrl: 'https://inference.do-ai.run/v1',
+  endpoint: 'https://inference.do-ai.run/v1/chat/completions'
+}
+[faq-matcher] pre-computing embeddings for 45 FAQ questions…
+dtype not specified for "model". Using the default dtype (fp32) for this device (cpu).
+[faq-matcher] ready — 45 vectors cached
+[faq-matcher] matched { faqId: 'upload_count', score: '0.818' }
+[chat] locally answered FAQ (semantic) {
+  requestId: 'mp5ymzca-t3hx2h',
+  faqId: 'upload_count',
+  score: '0.818',
+  browserId: 'b_mp5wzyhq_k8pcume4',
+  uploadCount: 1,
+  scope: 'app'
+}
 Restarting 'server/index.js'
 [startup] Port 3000 is in use. Retrying on 3001...
 
@@ -391,11 +514,9 @@ Restarting 'server/index.js'
 - Chat:         http://localhost:3001/chat
 - Widget demo:  http://localhost:3001/widget-demo
 
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-Restarting 'server/index.js'
-Restarting 'server/index.js'
+[faq-matcher] pre-computing embeddings for 45 FAQ questions…
+dtype not specified for "model". Using the default dtype (fp32) for this device (cpu).
+[faq-matcher] ready — 45 vectors cached
 Restarting 'server/index.js'
 [startup] Port 3000 is in use. Retrying on 3001...
 
@@ -404,11 +525,6 @@ Restarting 'server/index.js'
 - Chat:         http://localhost:3001/chat
 - Widget demo:  http://localhost:3001/widget-demo
 
-Restarting 'server/index.js'
-[startup] Port 3000 is in use. Retrying on 3001...
-
-✓ Express server running at http://localhost:3001
-- Home:         http://localhost:3001/
-- Chat:         http://localhost:3001/chat
-- Widget demo:  http://localhost:3001/widget-demo
-
+[faq-matcher] pre-computing embeddings for 45 FAQ questions…
+dtype not specified for "model". Using the default dtype (fp32) for this device (cpu).
+[faq-matcher] ready — 45 vectors cached

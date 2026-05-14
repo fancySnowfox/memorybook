@@ -1,7 +1,45 @@
 const DEFAULT_MODEL_ID = process.env.AI_MODEL_ID || 'router:knowledge-base-document-intelligence-01';
 const DEFAULT_TASK_ID = process.env.AI_TASK_ID || 'knowledge-base-customer-support';
 const DEFAULT_GRADIENT_BASE_URL = 'https://inference.do-ai.run/v1';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { retrieveRagContext, retrieveRagContextForUser } from '../utils/rag-llamaindex.js';
+import { matchFaq } from '../utils/faq-matcher.js';
+
+const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
+
+function sanitizeBrowserId(browserId) {
+  return typeof browserId === 'string' ? browserId.replace(/[^a-zA-Z0-9_\-]/g, '') : '';
+}
+
+
+
+async function getCurrentUserUploadCount(browserId) {
+  const safeId = sanitizeBrowserId(browserId);
+  if (!safeId) {
+    return { count: 0, scoped: false };
+  }
+
+  const userDir = path.join(UPLOADS_DIR, safeId);
+  const entries = await fs.readdir(userDir, { withFileTypes: true }).catch(() => []);
+  const count = entries.filter((entry) => entry.isFile()).length;
+  return { count, scoped: true };
+}
+
+function buildUploadCountAnswer({ count, scoped }) {
+  if (!scoped) {
+    return 'I could not determine your current folder identity, so I cannot count your uploaded files right now.';
+  }
+
+  const noun = count === 1 ? 'file' : 'files';
+  return `In your current Memorybook Creator folder, there are ${count} uploaded ${noun}.`;
+}
+
+
+
+function normalizeChatScope(scope) {
+  return scope === 'general' ? 'general' : 'app';
+}
 
 function normalizeBaseUrl(baseUrl) {
   return (baseUrl || DEFAULT_GRADIENT_BASE_URL).trim().replace(/\/+$/, '');
@@ -201,11 +239,49 @@ async function chat(req, res) {
 
     const latestUserMessage = [...messages].reverse().find((message) => message?.role === 'user')?.content;
     const browserId = req.headers['x-browser-id'] || req.body?.browserId || '';
+    const chatScope = normalizeChatScope(req.body?.scope);
+
+    // Route app/self FAQ questions locally before inference calls.
+    if (chatScope === 'app' && latestUserMessage) {
+      const faqMatch = await matchFaq(latestUserMessage);
+      if (faqMatch) {
+        let localAnswer = '';
+
+        if (faqMatch.isDynamic && faqMatch.faqId === 'upload_count') {
+          const uploadStats = await getCurrentUserUploadCount(browserId);
+          localAnswer = buildUploadCountAnswer(uploadStats);
+          console.log('[chat] locally answered FAQ (semantic)', {
+            requestId,
+            faqId: faqMatch.faqId,
+            score: faqMatch.score.toFixed(3),
+            browserId: sanitizeBrowserId(browserId) || 'missing',
+            uploadCount: uploadStats.count,
+            scope: chatScope,
+          });
+        } else if (!faqMatch.isDynamic) {
+          localAnswer = faqMatch.answer;
+          console.log('[chat] locally answered FAQ (semantic)', {
+            requestId,
+            faqId: faqMatch.faqId,
+            score: faqMatch.score.toFixed(3),
+            scope: chatScope,
+          });
+        }
+
+        if (localAnswer) {
+          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+          res.write(localAnswer);
+          res.end();
+          return;
+        }
+      }
+    }
+
     let messagesForModel = messages;
     let ragUsed = false;
     let ragSources = [];
 
-    if (typeof latestUserMessage === 'string' && latestUserMessage.trim().length > 0) {
+    if (chatScope === 'app' && typeof latestUserMessage === 'string' && latestUserMessage.trim().length > 0) {
       try {
         const rag = browserId
           ? await retrieveRagContextForUser(latestUserMessage, browserId)
@@ -231,6 +307,8 @@ async function chat(req, res) {
       } catch (ragError) {
         console.warn('RAG retrieval failed, continuing without RAG:', ragError);
       }
+    } else if (chatScope === 'general') {
+      console.log('[chat] general scope selected; skipping local app routing and RAG', { requestId });
     }
 
     console.log('Chat request:', {
@@ -240,6 +318,7 @@ async function chat(req, res) {
       messageCount: messages.length, 
       temperature, 
       maxTokens,
+      scope: chatScope,
       ragUsed,
     });
 
@@ -305,8 +384,34 @@ async function chat(req, res) {
       });
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '';
+    const responseContentType = (response.headers.get('content-type') || '').toLowerCase();
+    const rawBody = await response.text();
+
+    console.log('[chat] inference response received', {
+      requestId,
+      status: response.status,
+      contentType: responseContentType,
+      bodyLength: rawBody.length,
+      bodyPreview: rawBody.slice(0, 2000),
+    });
+
+    let data;
+    try {
+      data = responseContentType.includes('application/json')
+        ? JSON.parse(rawBody)
+        : { raw: rawBody };
+    } catch (parseError) {
+      console.error('[chat] failed to parse inference response', {
+        requestId,
+        message: parseError instanceof Error ? parseError.message : String(parseError),
+      });
+      return res.status(502).json({
+        error: 'Invalid response from inference server',
+        details: 'The inference server response could not be parsed.',
+      });
+    }
+
+    const content = data.choices?.[0]?.message?.content || data.raw || '';
 
     if (!content) {
       console.warn('Empty response from Gradient API:', data);

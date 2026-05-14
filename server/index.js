@@ -11,6 +11,7 @@ import { uploadMovMiddleware, convertMovToMp4 } from './routes/video.js';
 import { uploadPdfMiddleware, handlePdfUpload, listFiles, serveFile, deleteFile } from './routes/files.js';
 import { checkApiConnectivity } from './utils/health-check.js';
 import { getRagStatus, reindexRag } from './utils/rag-llamaindex.js';
+import { initFaqMatcher } from './utils/faq-matcher.js';
 
 dotenv.config({ path: '.env.local' });
 
@@ -269,6 +270,8 @@ function startServer(port) {
     console.log(`- Home:         http://localhost:${port}/`);
     console.log(`- Chat:         http://localhost:${port}/chat`);
     console.log(`- Widget demo:  http://localhost:${port}/widget-demo\n`);
+    // Pre-compute FAQ embeddings in the background so the first query is fast.
+    initFaqMatcher().catch((err) => console.warn('[faq-matcher] background init failed:', err.message));
   });
 
   server.on('error', (error) => {

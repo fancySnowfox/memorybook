@@ -29,7 +29,14 @@ sudo apt upgrade -y
 
 # 2. Install Node.js 22+
 echo "[2/10] Installing Node.js 22+..."
-if ! command -v node &> /dev/null || [ "$(node -v | cut -d'v' -f2 | cut -d'.' -f1)" -lt 22 ]; then
+MIN_NODE_VERSION="22.14.0"
+CURRENT_NODE_VERSION=""
+if command -v node &> /dev/null; then
+  CURRENT_NODE_VERSION="$(node -v | sed 's/^v//')"
+fi
+
+if [ -z "$CURRENT_NODE_VERSION" ] || ! dpkg --compare-versions "$CURRENT_NODE_VERSION" ge "$MIN_NODE_VERSION"; then
+  echo "   Installing/upgrading Node.js. Current: ${CURRENT_NODE_VERSION:-none}, Required: >=${MIN_NODE_VERSION}"
   curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
   sudo apt install -y nodejs
 fi
@@ -47,7 +54,7 @@ sudo chown memorybook:memorybook $APP_HOME
 
 # 5. Clone or pull repository
 echo "[5/10] Cloning repository..."
-sudo sudo -u memorybook git clone $REPO_URL $APP_HOME 2>/dev/null || (cd $APP_HOME && sudo -u memorybook git pull origin main)
+sudo -u memorybook git clone $REPO_URL $APP_HOME 2>/dev/null || (cd $APP_HOME && sudo -u memorybook git pull origin main)
 
 # 6. Install Node dependencies
 echo "[6/10] Installing Node.js dependencies..."
@@ -94,13 +101,16 @@ sudo cp deploy/nginx-memorybook.conf /etc/nginx/sites-available/memorybook
 sudo sed -i "s/your-domain.com/$DOMAIN/g" /etc/nginx/sites-available/memorybook
 sudo ln -sf /etc/nginx/sites-available/memorybook /etc/nginx/sites-enabled/memorybook
 sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl restart nginx
 
 # 9. Set up SSL with Let's Encrypt
 echo "[9/10] Obtaining SSL certificate with Let's Encrypt..."
-sudo certbot certonly --nginx -d $DOMAIN -d www.$DOMAIN --agree-tos -m admin@$DOMAIN --non-interactive
+sudo systemctl stop nginx 2>/dev/null || true
+sudo certbot certonly --standalone -d $DOMAIN -d www.$DOMAIN --agree-tos -m admin@$DOMAIN --non-interactive
 sudo certbot renew --dry-run
+
+# Validate and start Nginx only after certificates exist
+sudo nginx -t
+sudo systemctl restart nginx
 
 # 10. Set up systemd service
 echo "[10/10] Installing systemd service..."

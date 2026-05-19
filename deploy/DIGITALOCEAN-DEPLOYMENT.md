@@ -29,7 +29,7 @@ git clone https://github.com/yourusername/memorybook.git
 cd memorybook
 
 # Run the setup script
-chmod +x deploy/digitalocean-setup.sh
+gi
 bash deploy/digitalocean-setup.sh your-domain.com
 ```
 
@@ -103,22 +103,25 @@ sudo chmod 600 /home/memorybook/memorybook/.env.local
 ```bash
 # Copy and customize the nginx config
 sudo cp /home/memorybook/memorybook/deploy/nginx-memorybook.conf /etc/nginx/sites-available/memorybook
-sudo sed -i 's/your-domain.com/your-actual-domain.com/g' /etc/nginx/sites-available/memorybook
+sudo sed -i 's/your-domain.com/memorystory.org/g' /etc/nginx/sites-available/memorybook
 
 # Enable the site
 sudo ln -s /etc/nginx/sites-available/memorybook /etc/nginx/sites-enabled/memorybook
 sudo rm -f /etc/nginx/sites-enabled/default
-
-# Test and reload
-sudo nginx -t
-sudo systemctl restart nginx
 ```
 
 ### 7. Get SSL Certificate
 
 ```bash
-sudo certbot certonly --nginx -d your-domain.com -d www.your-domain.com \
+# Stop nginx so certbot can bind port 80 for HTTP challenge
+sudo systemctl stop nginx
+
+sudo certbot certonly --standalone -d your-domain.com -d www.your-domain.com \
   --agree-tos -m admin@your-domain.com --non-interactive
+
+# Start nginx after certs are issued
+sudo nginx -t
+sudo systemctl restart nginx
 
 # Verify auto-renewal
 sudo certbot renew --dry-run

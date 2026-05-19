@@ -356,6 +356,22 @@
       };
     }
 
+    async function readApiResponse(response) {
+      const raw = await response.text();
+      const contentType = response.headers.get('content-type') || '';
+      let json = null;
+
+      if (contentType.includes('application/json')) {
+        try {
+          json = JSON.parse(raw);
+        } catch (_) {
+          json = null;
+        }
+      }
+
+      return { raw, json, contentType };
+    }
+
     // ── Tab switching ──────────────────────────────────────────────────────────
     (function () {
       const tabBtns = document.querySelectorAll('.tab-btn');
@@ -417,11 +433,17 @@
           });
 
           if (!response.ok) {
+            const { raw, json } = await readApiResponse(response);
             let message = `Conversion failed (${response.status})`;
-            try {
-              const errorJson = await response.json();
-              message = errorJson.message || errorJson.error?.message || message;
-            } catch (_) { /* ignore */ }
+            if (json?.message) {
+              message = json.message;
+            } else if (json?.error?.message) {
+              message = json.error.message;
+            } else if (raw && raw.trim().startsWith('<')) {
+              message = `Conversion failed (${response.status}). Upstream returned HTML (likely Nginx/proxy).`;
+            } else if (raw.trim()) {
+              message = raw.trim().slice(0, 240);
+            }
             throw new Error(message);
           }
 
@@ -478,8 +500,23 @@
             headers: fileApiHeaders(),
             body: formData,
           });
-          const json = await response.json();
-          if (!response.ok) throw new Error(json.message || 'Upload failed.');
+
+          const { raw, json } = await readApiResponse(response);
+          if (!response.ok) {
+            let message = 'Upload failed.';
+            if (json?.message) {
+              message = json.message;
+            } else if (raw && raw.trim().startsWith('<')) {
+              message = `Upload failed (${response.status}). Upstream returned HTML (likely Nginx/proxy).`;
+            } else if (raw.trim()) {
+              message = raw.trim().slice(0, 240);
+            }
+            throw new Error(message);
+          }
+
+          if (!json || !json.file) {
+            throw new Error('Upload succeeded but response was not valid JSON.');
+          }
 
           const message = json.file.converted
             ? `Uploaded and converted to PDF: ${json.file.originalName}`

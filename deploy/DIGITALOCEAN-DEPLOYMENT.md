@@ -29,7 +29,7 @@ git clone https://github.com/yourusername/memorybook.git
 cd memorybook
 
 # Run the setup script
-chmod +x deploy/digitalocean-setup.sh
+gi
 bash deploy/digitalocean-setup.sh your-domain.com
 ```
 

@@ -238,6 +238,55 @@ public/
 - **Memory**: ~50-80MB
 - **CPU**: Low overhead pure Node.js
 
+## Deployment
+
+### DigitalOcean (Automated)
+
+For a **quick automated deployment** to DigitalOcean with SSL/HTTPS and Nginx:
+
+```bash
+# On your DigitalOcean Ubuntu 22.04+ droplet:
+git clone https://github.com/yourusername/memorybook.git
+cd memorybook
+chmod +x deploy/digitalocean-setup.sh
+bash deploy/digitalocean-setup.sh your-domain.com
+```
+
+This script will:
+- Install all dependencies (Node.js, LibreOffice, FFmpeg, Nginx, Certbot)
+- Configure Nginx reverse proxy with SSL
+- Obtain Let's Encrypt certificates
+- Set up systemd service for auto-start/restart
+- Start your app with HTTPS on your domain
+
+For full documentation: **[DigitalOcean Deployment Guide](./deploy/DIGITALOCEAN-DEPLOYMENT.md)**
+
+### Docker
+
+Deploy using Docker and Docker Compose:
+
+```bash
+# Build the image
+docker build -t memorybook:latest .
+
+# Run with compose (includes Nginx reverse proxy)
+docker-compose up -d
+```
+
+Configuration is passed via environment variables. See `docker-compose.yml` for examples.
+
+### Manual Deployment
+
+For other platforms, follow the [Production Deployment Checklist](./deploy/PRODUCTION-CHECKLIST.md) and [DigitalOcean guide](./deploy/DIGITALOCEAN-DEPLOYMENT.md) for reference.
+
+Key steps:
+1. Install Node.js 22+, LibreOffice, FFmpeg
+2. Clone repo and `npm install`
+3. Set up Nginx reverse proxy
+4. Obtain SSL certificate (Let's Encrypt)
+5. Configure systemd service
+6. Set environment variables in `.env.local`
+
 ## Troubleshooting
 
 **Port 3000 already in use?**
@@ -247,6 +296,9 @@ PORT=3001 npm run dev
 
 **API key errors?**
 Check that `GRADIENT_API_KEY` is set and valid in `.env.local`
+
+**SSL certificate issues?**
+See the [DigitalOcean guide troubleshooting section](./deploy/DIGITALOCEAN-DEPLOYMENT.md#troubleshooting)
 
 **No responses from AI?**
 Verify Gradient API credentials and model availability

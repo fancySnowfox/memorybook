@@ -1,0 +1,26 @@
+[Unit]
+Description=Memorybook Creator AI - Node.js Chat App
+After=network.target
+
+[Service]
+Type=simple
+User=memorybook
+WorkingDirectory=/home/memorybook/memorybook
+ExecStart=/usr/bin/node server/index.js
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/var/log/memorybook/app.log
+StandardError=append:/var/log/memorybook/app.log
+Environment="NODE_ENV=production"
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Resource limits
+LimitNOFILE=65535
+LimitNPROC=8192
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -26,6 +26,8 @@
   const POSITION = script?.getAttribute('data-position') || 'bottom-right';
   const TITLE = script?.getAttribute('data-title') || 'AI Chat';
   const THEME = script?.getAttribute('data-theme') || 'light';
+  const MARKDOWN_IT_CDN = 'https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js';
+  let markdownRenderer = null;
 
   // ── Styles ───────────────────────────────────────────────────────────────────
   const COLORS = {
@@ -280,6 +282,8 @@
 
   // ── DOM ──────────────────────────────────────────────────────────────────────
   function mount() {
+    initializeMarkdownRenderer();
+
     // Style tag
     const style = document.createElement('style');
     style.textContent = css;
@@ -402,178 +406,57 @@
     return str.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  function initializeMarkdownRenderer() {
+    if (typeof window.markdownit === 'function') {
+      markdownRenderer = window.markdownit({
+        html: false,
+        linkify: true,
+        typographer: true,
+        breaks: true,
+      });
+      return;
+    }
+
+    const existingScript = document.querySelector(`script[src="${MARKDOWN_IT_CDN}"]`);
+    if (existingScript) {
+      existingScript.addEventListener('load', () => {
+        if (typeof window.markdownit === 'function') {
+          markdownRenderer = window.markdownit({
+            html: false,
+            linkify: true,
+            typographer: true,
+            breaks: true,
+          });
+        }
+      });
+      return;
+    }
+
+    const mdScript = document.createElement('script');
+    mdScript.src = MARKDOWN_IT_CDN;
+    mdScript.async = true;
+    mdScript.onload = () => {
+      markdownRenderer = window.markdownit({
+        html: false,
+        linkify: true,
+        typographer: true,
+        breaks: true,
+      });
+    };
+    mdScript.onerror = () => {
+      console.warn('Markdown-it failed to load; falling back to plain text rendering.');
+    };
+    document.head.appendChild(mdScript);
+  }
+
   function renderMarkdown(text) {
     if (typeof text !== 'string' || !text.trim()) return '';
 
-    const normalized = text.replace(/\r\n?/g, '\n');
-    const lines = normalized.split('\n');
-    const out = [];
-    let paragraph = [];
-    let inUl = false;
-    let inOl = false;
-
-    function closeLists() {
-      if (inUl) {
-        out.push('</ul>');
-        inUl = false;
-      }
-      if (inOl) {
-        out.push('</ol>');
-        inOl = false;
-      }
+    if (markdownRenderer) {
+      return markdownRenderer.render(text);
     }
 
-    function flushParagraph() {
-      if (!paragraph.length) return;
-      out.push(`<p>${paragraph.join('<br>')}</p>`);
-      paragraph = [];
-    }
-
-    function parseTableRow(row) {
-      const trimmed = row.trim();
-      const noOuterPipes = trimmed.replace(/^\|/, '').replace(/\|$/, '');
-      return noOuterPipes.split('|').map((cell) => cell.trim());
-    }
-
-    function isTableRow(row) {
-      const cells = parseTableRow(row);
-      return cells.length >= 2;
-    }
-
-    function isTableDivider(row) {
-      const cells = parseTableRow(row);
-      return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
-    }
-
-    for (let i = 0; i < lines.length; i += 1) {
-      const line = lines[i].trimEnd();
-      const blank = line.trim().length === 0;
-
-      if (blank) {
-        flushParagraph();
-        closeLists();
-        continue;
-      }
-
-      const codeFenceMatch = line.match(/^```([a-zA-Z0-9_-]+)?\s*$/);
-      if (codeFenceMatch) {
-        flushParagraph();
-        closeLists();
-
-        const codeLines = [];
-        i += 1;
-        while (i < lines.length && !/^```\s*$/.test(lines[i].trimEnd())) {
-          codeLines.push(lines[i]);
-          i += 1;
-        }
-
-        const language = codeFenceMatch[1] ? ` class="language-${escapeHtml(codeFenceMatch[1])}"` : '';
-        out.push(`<pre><code${language}>${escapeHtml(codeLines.join('\n'))}</code></pre>`);
-        continue;
-      }
-
-      const heading = line.match(/^(#{1,6})\s+(.+)$/);
-      if (heading) {
-        flushParagraph();
-        closeLists();
-        const level = heading[1].length;
-        out.push(`<h${level}>${formatInline(heading[2])}</h${level}>`);
-        continue;
-      }
-
-      const nextLine = i + 1 < lines.length ? lines[i + 1].trim() : '';
-      if (isTableRow(line) && isTableDivider(nextLine)) {
-        flushParagraph();
-        closeLists();
-
-        const headers = parseTableRow(line);
-        const colCount = headers.length;
-        const bodyRows = [];
-
-        i += 2;
-        while (i < lines.length) {
-          const rowLine = lines[i].trim();
-          if (!rowLine || !isTableRow(rowLine)) break;
-
-          const cells = parseTableRow(rowLine);
-          while (cells.length < colCount) cells.push('');
-          bodyRows.push(cells.slice(0, colCount));
-          i += 1;
-        }
-        i -= 1;
-
-        const thead = `<thead><tr>${headers
-          .map((cell) => `<th>${formatInline(cell)}</th>`)
-          .join('')}</tr></thead>`;
-
-        const tbody = bodyRows.length
-          ? `<tbody>${bodyRows
-              .map((row) => `<tr>${row.map((cell) => `<td>${formatInline(cell)}</td>`).join('')}</tr>`)
-              .join('')}</tbody>`
-          : '';
-
-        out.push(`<table>${thead}${tbody}</table>`);
-        continue;
-      }
-
-      const ulItem = line.match(/^[-*+]\s+(.+)$/);
-      if (ulItem) {
-        flushParagraph();
-        if (inOl) {
-          out.push('</ol>');
-          inOl = false;
-        }
-        if (!inUl) {
-          out.push('<ul>');
-          inUl = true;
-        }
-        out.push(`<li>${formatInline(ulItem[1])}</li>`);
-        continue;
-      }
-
-      const olItem = line.match(/^\d+\.\s+(.+)$/);
-      if (olItem) {
-        flushParagraph();
-        if (inUl) {
-          out.push('</ul>');
-          inUl = false;
-        }
-        if (!inOl) {
-          out.push('<ol>');
-          inOl = true;
-        }
-        out.push(`<li>${formatInline(olItem[1])}</li>`);
-        continue;
-      }
-
-      const quote = line.match(/^>\s?(.+)$/);
-      if (quote) {
-        flushParagraph();
-        closeLists();
-        out.push(`<p>${formatInline(quote[1])}</p>`);
-        continue;
-      }
-
-      closeLists();
-      paragraph.push(formatInline(line));
-    }
-
-    flushParagraph();
-    closeLists();
-    return out.join('');
-  }
-
-  function formatInline(text) {
-    let escaped = escapeHtml(text);
-
-    escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
-    escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    escaped = escaped.replace(/__([^_]+)__/g, '<strong>$1</strong>');
-    escaped = escaped.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    escaped = escaped.replace(/_([^_]+)_/g, '<em>$1</em>');
-    escaped = escaped.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-
-    return escaped;
+    return `<p>${escapeHtml(text).replace(/\r\n?|\n/g, '<br>')}</p>`;
   }
 
   if (document.readyState === 'loading') {

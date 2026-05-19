@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
   <style type="text/tailwindcss">
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     .message-user { @apply bg-blue-100 text-blue-900; }
@@ -110,6 +110,21 @@
     let messageHistory = [];
     let chatController = null;
     let isLoading = false;
+    const markdownRenderer = window.markdownit({
+      html: false,
+      linkify: true,
+      typographer: true,
+      highlight: function (str, lang) {
+        if (lang && hljs.getLanguage(lang)) {
+          try {
+            return `<pre><code class="hljs language-${lang}">${hljs.highlight(str, { language: lang }).value}</code></pre>`;
+          } catch (_) {
+            // Fall back to default escaping below.
+          }
+        }
+        return `<pre><code class="hljs">${markdownRenderer.utils.escapeHtml(str)}</code></pre>`;
+      }
+    });
 
     function showError(message) {
       const container = document.getElementById('errorContainer');
@@ -246,7 +261,7 @@
             if (!messageElement) {
               messageElement = addMessageToUI('assistant', '', true);
             }
-            messageElement.innerHTML = marked.parse(assistantMessage);
+            messageElement.innerHTML = markdownRenderer.render(assistantMessage);
             messageElement.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
             document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
           }
@@ -304,7 +319,7 @@
       if (isStreaming) {
         messageDiv.innerHTML = '';
       } else {
-        messageDiv.innerHTML = marked.parse(content);
+        messageDiv.innerHTML = markdownRenderer.render(content);
         messageDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
       }
 

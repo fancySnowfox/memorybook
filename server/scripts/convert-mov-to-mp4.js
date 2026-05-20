@@ -164,8 +164,6 @@ async function main() {
         videoFilter,
         '-c:v',
         'libx264',
-        '-preset',
-        'medium',
         '-crf',
         String(attempt.crf),
         '-pix_fmt',

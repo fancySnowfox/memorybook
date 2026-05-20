@@ -543,8 +543,22 @@
         const response = await fetch('/api/files', {
           headers: fileApiHeaders(),
         });
-        const json = await response.json();
-        if (!response.ok) throw new Error(json.message || 'Failed to load files.');
+        const { raw, json } = await readApiResponse(response);
+        if (!response.ok) {
+          let message = 'Failed to load files.';
+          if (json?.message) {
+            message = json.message;
+          } else if (raw && raw.trim().startsWith('<')) {
+            message = `Failed to load files (${response.status}). Upstream returned HTML (likely Nginx/proxy).`;
+          } else if (raw.trim()) {
+            message = raw.trim().slice(0, 240);
+          }
+          throw new Error(message);
+        }
+
+        if (!json) {
+          throw new Error('File list response was not valid JSON.');
+        }
 
         const files = json.files;
         if (!files || files.length === 0) {
@@ -599,8 +613,18 @@
                 method: 'DELETE',
                 headers: fileApiHeaders(),
               });
-              const json = await res.json();
-              if (!res.ok) throw new Error(json.message || 'Delete failed.');
+              const { raw, json } = await readApiResponse(res);
+              if (!res.ok) {
+                let message = 'Delete failed.';
+                if (json?.message) {
+                  message = json.message;
+                } else if (raw && raw.trim().startsWith('<')) {
+                  message = `Delete failed (${res.status}). Upstream returned HTML (likely Nginx/proxy).`;
+                } else if (raw.trim()) {
+                  message = raw.trim().slice(0, 240);
+                }
+                throw new Error(message);
+              }
               loadFiles();
             } catch (error) {
               alert(error instanceof Error ? error.message : 'Delete failed.');

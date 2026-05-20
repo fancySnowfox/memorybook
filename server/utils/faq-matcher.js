@@ -55,7 +55,7 @@ async function initFaqMatcher() {
   initPromise = (async () => {
     try {
       const raw = await readFile(FAQ_PATH, 'utf-8');
-      faqEntries = JSON.parse(raw);
+      faqEntries = (raw);
 
       const model = getEmbedModel();
 

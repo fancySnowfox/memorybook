@@ -92,6 +92,10 @@
                 <option value="480">480px</option>
               </select>
             </div>
+            <label for="storePermanently" class="flex items-center gap-2 text-sm text-gray-700">
+              <input id="storePermanently" name="storePermanently" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+              Store converted MP4 permanently on server
+            </label>
             <button id="convertBtn" type="submit" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-medium py-2.5 px-4 rounded-md transition-colors">
               Convert and Download
             </button>
@@ -414,10 +418,11 @@
       const form = document.getElementById('videoConvertForm');
       const fileInput = document.getElementById('movFile');
       const maxWidthSelect = document.getElementById('maxWidth');
+      const storePermanentlyCheckbox = document.getElementById('storePermanently');
       const button = document.getElementById('convertBtn');
       const statusEl = document.getElementById('convertStatus');
 
-      if (!form || !fileInput || !maxWidthSelect || !button || !statusEl) {
+      if (!form || !fileInput || !maxWidthSelect || !storePermanentlyCheckbox || !button || !statusEl) {
         return;
       }
 
@@ -443,6 +448,9 @@
           formData.append('video', file);
           if (maxWidthSelect.value) {
             formData.append('maxWidth', maxWidthSelect.value);
+          }
+          if (storePermanentlyCheckbox.checked) {
+            formData.append('storePermanently', 'true');
           }
 
           const response = await fetch('/api/video/convert', {
@@ -478,7 +486,9 @@
 
           const sizeHeader = response.headers.get('X-Output-Size-MB');
           const sizeText = sizeHeader ? ` Output size: ${sizeHeader} MB.` : '';
-          setStatus(`Done.${sizeText}`, false);
+          const storedFile = response.headers.get('X-Stored-File');
+          const storedText = storedFile ? ` Stored on server as ${storedFile}.` : '';
+          setStatus(`Done.${sizeText}${storedText}`, false);
         } catch (error) {
           setStatus(error instanceof Error ? error.message : 'Conversion failed.', true);
         } finally {

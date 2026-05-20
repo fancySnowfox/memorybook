@@ -8,6 +8,7 @@ import multer from 'multer';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
 const converterScriptPath = path.join(projectRoot, 'server', 'scripts', 'convert-mov-to-mp4.js');
+const persistentConvertedDir = path.join(projectRoot, 'uploads', 'converted-videos');
 
 const uploadDir = path.join(os.tmpdir(), 'snowfox-video-uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
@@ -99,6 +100,22 @@ function uploadMovMiddleware(req, res, next) {
   });
 }
 
+function parseBooleanFlag(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return ['1', 'true', 'yes', 'on'].includes(normalized);
+}
+
+function createStoredFileName(originalName) {
+  const baseName = path.basename(originalName, path.extname(originalName));
+  const safeBaseName = baseName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80) || 'video';
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  return `${safeBaseName}-${timestamp}.mp4`;
+}
+
 async function convertMovToMp4(req, res) {
   const tempWorkDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'snowfox-video-work-'));
 
@@ -116,6 +133,7 @@ async function convertMovToMp4(req, res) {
 
     const requestedWidthRaw = req.body?.maxWidth;
     const requestedWidth = requestedWidthRaw ? Number(requestedWidthRaw) : null;
+    const storePermanently = parseBooleanFlag(req.body?.storePermanently);
     if (requestedWidthRaw && (!Number.isInteger(requestedWidth) || requestedWidth < 320)) {
       return res.status(400).json({
         status: 'error',
@@ -142,6 +160,15 @@ async function convertMovToMp4(req, res) {
     const outputStats = await fs.promises.stat(outputPath);
     const outputSizeMb = outputStats.size / (1024 * 1024);
     const downloadName = `${path.basename(originalName, path.extname(originalName))}.mp4`;
+    let storedFilePath = null;
+
+    if (storePermanently) {
+      await fs.promises.mkdir(persistentConvertedDir, { recursive: true });
+      const storedFileName = createStoredFileName(originalName);
+      storedFilePath = path.join(persistentConvertedDir, storedFileName);
+      await fs.promises.copyFile(outputPath, storedFilePath);
+      res.setHeader('X-Stored-File', storedFileName);
+    }
 
     res.setHeader('X-Output-Size-MB', outputSizeMb.toFixed(2));
 
@@ -154,6 +181,9 @@ async function convertMovToMp4(req, res) {
       }
 
       await removeDirSafe(tempWorkDir);
+      if (storedFilePath) {
+        console.log(`Stored converted file: ${storedFilePath}`);
+      }
     });
   } catch (error) {
     console.error('Video conversion error:', error);

@@ -223,6 +223,7 @@ app.post('/api/files/upload', uploadPdfMiddleware, handlePdfUpload);
 app.get('/api/files', listFiles);
 app.get('/api/files/:filename', serveFile);
 app.delete('/api/files/:filename', deleteFile);
+app.post('/api/files/:filename/delete', deleteFile);
 
 // RAG endpoints
 app.get('/api/rag/status', (req, res) => {

@@ -238,7 +238,14 @@ export async function deleteFile(req, res) {
   try {
     await fs.promises.unlink(filePath);
     res.json({ status: 'ok' });
-  } catch {
+  } catch (error) {
+    console.error('[files] delete failed', {
+      filePath,
+      safeName,
+      owner: ownerId(req),
+      code: error?.code,
+      message: error?.message,
+    });
     res.status(404).json({ status: 'error', message: 'File not found.' });
   }
 }

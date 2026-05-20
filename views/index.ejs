@@ -609,8 +609,8 @@
           btn.addEventListener('click', async () => {
             if (!confirm(`Delete "${btn.dataset.name}"?`)) return;
             try {
-              const res = await fetch(`/api/files/${encodeURIComponent(btn.dataset.name)}`, {
-                method: 'DELETE',
+              const res = await fetch(`/api/files/${encodeURIComponent(btn.dataset.name)}/delete`, {
+                method: 'POST',
                 headers: fileApiHeaders(),
               });
               const { raw, json } = await readApiResponse(res);

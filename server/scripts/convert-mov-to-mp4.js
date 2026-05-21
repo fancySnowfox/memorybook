@@ -124,43 +124,6 @@ async function ensureFfmpegAvailable() {
   }
 }
 
-async function commandOutput(command, args) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-
-    child.stdout.on('data', (chunk) => {
-      stdout += String(chunk);
-    });
-
-    child.stderr.on('data', (chunk) => {
-      stderr += String(chunk);
-    });
-
-    child.on('error', (error) => {
-      reject(error);
-    });
-
-    child.on('close', (code) => {
-      if (code !== 0) {
-        resolve({ ok: false, stdout, stderr, code });
-        return;
-      }
-      resolve({ ok: true, stdout, stderr, code });
-    });
-  });
-}
-
-async function detectEncodingMode(ffmpegCommand) {
-  const encoders = await commandOutput(ffmpegCommand, ['-hide_banner', '-encoders']);
-  const supportsLibx264 = encoders.ok && /\blibx264\b/.test(`${encoders.stdout}\n${encoders.stderr}`);
-  if (supportsLibx264) {
-    return 'crf';
-  }
-  return 'bitrate';
-}
-
 async function main() {
   try {
     const { inputPath, outputPath, options } = parseArgs(process.argv.slice(2));
@@ -174,19 +137,16 @@ async function main() {
     }
 
     const ffmpegCommand = await ensureFfmpegAvailable();
-    const encodingMode = await detectEncodingMode(ffmpegCommand);
-    if (encodingMode === 'bitrate') {
-      console.warn('libx264 or CRF mode unavailable. Falling back to bitrate-based encoding.');
-    }
+    console.log('Using bitrate-based encoding mode (CRF disabled for compatibility).');
 
     const maxBytes = options.maxMb * 1024 * 1024;
     const attempts = [
-      { crf: 23, width: 1920, audioKbps: 128 },
-      { crf: 26, width: 1280, audioKbps: 96 },
-      { crf: 29, width: 960, audioKbps: 64 },
-      { crf: 32, width: 720, audioKbps: 48 },
-      { crf: 35, width: 640, audioKbps: 32 },
-      { crf: 38, width: 480, audioKbps: 32 },
+      { width: 1920, audioKbps: 128, videoKbps: 2200 },
+      { width: 1280, audioKbps: 96, videoKbps: 1600 },
+      { width: 960, audioKbps: 64, videoKbps: 1100 },
+      { width: 720, audioKbps: 48, videoKbps: 800 },
+      { width: 640, audioKbps: 32, videoKbps: 600 },
+      { width: 480, audioKbps: 32, videoKbps: 450 },
     ].map((attempt) => {
       if (!options.maxWidth) {
         return attempt;
@@ -204,14 +164,14 @@ async function main() {
     for (let i = 0; i < attempts.length; i += 1) {
       const attempt = attempts[i];
       console.log(
-        `\nAttempt ${i + 1}/${attempts.length}: CRF ${attempt.crf}, max width ${attempt.width}, audio ${attempt.audioKbps}k`
+        `\nAttempt ${i + 1}/${attempts.length}: max width ${attempt.width}, video ${attempt.videoKbps}k, audio ${attempt.audioKbps}k`
       );
 
       if (fs.existsSync(tempOutputPath)) {
         fs.unlinkSync(tempOutputPath);
       }
 
-      const videoFilter = `scale=min(${attempt.width}\\,iw):-2`;
+      const videoFilter = `scale=${attempt.width}:-2:force_original_aspect_ratio=decrease`;
       const ffmpegArgs = [
         '-y',
         '-i',
@@ -220,30 +180,14 @@ async function main() {
         videoFilter,
       ];
 
-      if (encodingMode === 'crf') {
-        ffmpegArgs.push(
-          '-c:v',
-          'libx264',
-          '-crf',
-          String(attempt.crf),
-          '-pix_fmt',
-          'yuv420p',
-          '-profile:v',
-          'high',
-          '-level',
-          '4.1'
-        );
-      } else {
-        const fallbackVideoBitrateKbps = [2200, 1600, 1100, 800, 600, 450][i] || 450;
-        ffmpegArgs.push(
-          '-c:v',
-          'mpeg4',
-          '-b:v',
-          `${fallbackVideoBitrateKbps}k`,
-          '-pix_fmt',
-          'yuv420p'
-        );
-      }
+      ffmpegArgs.push(
+        '-c:v',
+        'mpeg4',
+        '-b:v',
+        `${attempt.videoKbps}k`,
+        '-pix_fmt',
+        'yuv420p'
+      );
 
       ffmpegArgs.push(
         '-c:a',

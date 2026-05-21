@@ -439,6 +439,72 @@
         return `job${Date.now()}${Math.random().toString(36).slice(2, 10)}`;
       }
 
+      function parseXhrHeaders(rawHeaders) {
+        const headers = new Headers();
+        if (!rawHeaders) {
+          return headers;
+        }
+
+        rawHeaders
+          .trim()
+          .split(/\r?\n/)
+          .forEach((line) => {
+            const idx = line.indexOf(':');
+            if (idx <= 0) {
+              return;
+            }
+            const key = line.slice(0, idx).trim();
+            const value = line.slice(idx + 1).trim();
+            headers.append(key, value);
+          });
+
+        return headers;
+      }
+
+      function postVideoConvert(formData, handlers = {}) {
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          let uploadFinished = false;
+
+          function markUploadFinished() {
+            if (uploadFinished) {
+              return;
+            }
+            uploadFinished = true;
+            handlers.onUploadComplete?.();
+          }
+
+          xhr.open('POST', '/api/video/convert', true);
+          xhr.responseType = 'blob';
+
+          xhr.upload.addEventListener('progress', (event) => {
+            handlers.onUploadProgress?.(event);
+          });
+          xhr.upload.addEventListener('load', markUploadFinished);
+          xhr.upload.addEventListener('loadend', markUploadFinished);
+
+          xhr.addEventListener('error', () => {
+            reject(new Error('Network error during upload/conversion request.'));
+          });
+
+          xhr.addEventListener('abort', () => {
+            reject(new Error('Upload/conversion request was aborted.'));
+          });
+
+          xhr.addEventListener('load', () => {
+            markUploadFinished();
+            resolve({
+              ok: xhr.status >= 200 && xhr.status < 300,
+              status: xhr.status,
+              headers: parseXhrHeaders(xhr.getAllResponseHeaders()),
+              blob: xhr.response,
+            });
+          });
+
+          xhr.send(formData);
+        });
+      }
+
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
 
@@ -454,13 +520,19 @@
         const progressId = createProgressId();
         let progressPoller = null;
         let sawProgressData = false;
+        let uploadCompleted = false;
+        let uploadProgressSeen = false;
 
         async function pollProgress() {
           try {
             const progressRes = await fetch(`/api/video/convert/progress/${encodeURIComponent(progressId)}`);
             if (!progressRes.ok) {
               if (progressRes.status === 404 && !sawProgressData) {
-                setStatus('Uploading file to server… conversion progress will appear shortly.', false);
+                if (uploadCompleted) {
+                  setStatus('Upload complete. Waiting for conversion to start...', false);
+                } else if (!uploadProgressSeen) {
+                  setStatus('Uploading file to server… conversion progress will appear shortly.', false);
+                }
               }
               return;
             }
@@ -496,8 +568,8 @@
           }
         }
 
-        progressPoller = window.setInterval(pollProgress, 1200);
-        pollProgress();
+
+        // Polling will start after upload completes
 
         try {
           const formData = new FormData();
@@ -510,13 +582,35 @@
             formData.append('storePermanently', 'true');
           }
 
-          const response = await fetch('/api/video/convert', {
-            method: 'POST',
-            body: formData,
+
+          const response = await postVideoConvert(formData, {
+            onUploadProgress: (event) => {
+              if (!event.lengthComputable || sawProgressData) {
+                return;
+              }
+              uploadProgressSeen = true;
+              const percent = Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100)));
+              setStatus(`Uploading video... ${percent}%`, false);
+            },
+            onUploadComplete: () => {
+              uploadCompleted = true;
+              if (!sawProgressData) {
+                setStatus('Upload complete. Waiting for conversion to start...', false);
+              }
+              // Start polling only after upload is done
+              progressPoller = window.setInterval(pollProgress, 1200);
+              pollProgress();
+            },
           });
 
           if (!response.ok) {
-            const { raw, json } = await readApiResponse(response);
+            const raw = await response.blob.text();
+            let json = null;
+            try {
+              json = raw ? JSON.parse(raw) : null;
+            } catch {
+              json = null;
+            }
             let message = `Conversion failed (${response.status})`;
             if (json?.message) {
               message = json.message;
@@ -530,7 +624,7 @@
             throw new Error(message);
           }
 
-          const blob = await response.blob();
+          const blob = response.blob;
           const suggestedName = file.name.replace(/\.[^.]+$/, '') + '.mp4';
           const downloadUrl = URL.createObjectURL(blob);
           const link = document.createElement('a');

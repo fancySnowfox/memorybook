@@ -15,6 +15,22 @@ const PROGRESS_RETENTION_MS = 30 * 60 * 1000;
 const uploadDir = path.join(os.tmpdir(), 'snowfox-video-uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
 
+function resolveFormidableFactory() {
+  if (typeof formidable === 'function') {
+    return formidable;
+  }
+
+  if (formidable && typeof formidable.formidable === 'function') {
+    return formidable.formidable;
+  }
+
+  if (formidable && typeof formidable.default === 'function') {
+    return formidable.default;
+  }
+
+  return null;
+}
+
 function runNodeScript(scriptPath, args, handlers = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [scriptPath, ...args], {
@@ -245,7 +261,17 @@ function logUploadProgress(req, res, next) {
 
 // Formidable-based upload middleware with progress logging
 function uploadMovMiddleware(req, res, next) {
-  const form = formidable({
+  const formidableFactory = resolveFormidableFactory();
+  if (!formidableFactory) {
+    console.error('[formidable] Unable to resolve formidable factory function. Export keys:', Object.keys(formidable || {}));
+    res.status(500).json({
+      status: 'error',
+      message: 'Upload parser initialization failed on server.',
+    });
+    return;
+  }
+
+  const form = formidableFactory({
     uploadDir,
     maxFileSize: 1024 * 1024 * 1024, // 1GB
     multiples: false,
@@ -255,7 +281,7 @@ function uploadMovMiddleware(req, res, next) {
   });
 
   form.on('progress', (bytesReceived, bytesExpected) => {
-    const percent = ((bytesReceived / bytesExpected) * 100).toFixed(1);
+    const percent = bytesExpected > 0 ? ((bytesReceived / bytesExpected) * 100).toFixed(1) : '0.0';
     console.log(`[formidable] Upload progress: ${bytesReceived} / ${bytesExpected} bytes (${percent}%)`);
   });
 
@@ -274,9 +300,16 @@ function uploadMovMiddleware(req, res, next) {
       });
       return;
     }
-    // Attach parsed fields and files to req for downstream handler
-    req.body = fields;
-    req.file = files.video || Object.values(files)[0];
+    // Formidable may return arrays for both fields and files. Normalize them.
+    const normalizedBody = Object.fromEntries(
+      Object.entries(fields || {}).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]),
+    );
+    const selectedFile = files?.video || Object.values(files || {})[0] || null;
+    const normalizedFile = Array.isArray(selectedFile) ? selectedFile[0] : selectedFile;
+
+    // Attach parsed fields and file to req for downstream handler
+    req.body = normalizedBody;
+    req.file = normalizedFile;
     next();
   });
 }
@@ -327,6 +360,13 @@ async function convertMovToMp4(req, res) {
     }
 
     // Formidable file object: { filepath, originalFilename, mimetype, size }
+    if (!req.file.filepath) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Uploaded file path not found. Please retry upload.',
+      });
+    }
+
     const originalName = req.file.originalFilename || 'video.MOV';
     const inputPath = path.join(tempWorkDir, 'input.mov');
     const outputPath = path.join(tempWorkDir, 'output.mp4');

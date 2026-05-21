@@ -66,6 +66,12 @@ function parseArgs(argv) {
 
 function runCommand(command, args, label) {
   return new Promise((resolve, reject) => {
+    const commandText = [command, ...args.map((arg) => {
+      const value = String(arg);
+      return /\s/.test(value) ? `"${value.replace(/"/g, '\\"')}"` : value;
+    })].join(' ');
+    console.log(`[converter] ${label} command: ${commandText}`);
+
     const child = spawn(command, args, { stdio: 'pipe' });
     let stdout = '';
     let stderr = '';

@@ -453,11 +453,15 @@
 
         const progressId = createProgressId();
         let progressPoller = null;
+        let sawProgressData = false;
 
         async function pollProgress() {
           try {
             const progressRes = await fetch(`/api/video/convert/progress/${encodeURIComponent(progressId)}`);
             if (!progressRes.ok) {
+              if (progressRes.status === 404 && !sawProgressData) {
+                setStatus('Uploading file to server… conversion progress will appear shortly.', false);
+              }
               return;
             }
 
@@ -466,6 +470,8 @@
             if (!progress) {
               return;
             }
+
+            sawProgressData = true;
 
             if (progress.status === 'error' && progress.message) {
               setStatus(progress.message, true);

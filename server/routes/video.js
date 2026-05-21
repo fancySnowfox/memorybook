@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
-import multer from 'multer';
+import formidable from 'formidable';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
@@ -14,20 +14,6 @@ const PROGRESS_RETENTION_MS = 30 * 60 * 1000;
 
 const uploadDir = path.join(os.tmpdir(), 'snowfox-video-uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
-
-const upload = multer({
-  dest: uploadDir,
-  limits: {
-    fileSize: 1024 * 1024 * 1024,
-  },
-  fileFilter: (req, file, cb) => {
-    if (!/\.mov$/i.test(file.originalname || '')) {
-      cb(new Error('Only .MOV files are allowed.'));
-      return;
-    }
-    cb(null, true);
-  },
-});
 
 function runNodeScript(scriptPath, args, handlers = {}) {
   return new Promise((resolve, reject) => {
@@ -234,33 +220,64 @@ async function removeDirSafe(dirPath) {
   }
 }
 
-function uploadMovMiddleware(req, res, next) {
-  upload.single('video')(req, res, (error) => {
-    if (!error) {
-      next();
-      return;
+// Middleware to log Content-Length and bytes received
+function logUploadProgress(req, res, next) {
+  const contentLength = req.headers['content-length'] ? parseInt(req.headers['content-length'], 10) : null;
+  if (!contentLength || isNaN(contentLength)) {
+    console.log('[upload] No Content-Length header');
+    return next();
+  }
+  console.log(`[upload] Content-Length: ${contentLength} bytes`);
+  let received = 0;
+  req.on('data', (chunk) => {
+    received += chunk.length;
+    // Log every 5MB or on finish
+    if (received === contentLength || received % (5 * 1024 * 1024) < chunk.length) {
+      console.log(`[upload] Received: ${received} / ${contentLength} bytes (${((received / contentLength) * 100).toFixed(1)}%)`);
     }
+  });
+  req.on('end', () => {
+    console.log(`[upload] Upload complete: ${received} / ${contentLength} bytes`);
+  });
+  next();
+}
 
-    if (error instanceof multer.MulterError) {
-      if (error.code === 'LIMIT_FILE_SIZE') {
+
+// Formidable-based upload middleware with progress logging
+function uploadMovMiddleware(req, res, next) {
+  const form = formidable({
+    uploadDir,
+    maxFileSize: 1024 * 1024 * 1024, // 1GB
+    multiples: false,
+    filter: ({ name, originalFilename, mimetype }) => {
+      return /\.mov$/i.test(originalFilename || '');
+    },
+  });
+
+  form.on('progress', (bytesReceived, bytesExpected) => {
+    const percent = ((bytesReceived / bytesExpected) * 100).toFixed(1);
+    console.log(`[formidable] Upload progress: ${bytesReceived} / ${bytesExpected} bytes (${percent}%)`);
+  });
+
+  form.parse(req, (err, fields, files) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE' || err.message?.includes('maxFileSize')) {
         res.status(413).json({
           status: 'error',
           message: 'Uploaded file is too large. Maximum allowed is 1GB.',
         });
         return;
       }
-
       res.status(400).json({
         status: 'error',
-        message: `Upload failed: ${error.message}`,
+        message: `Upload failed: ${err.message}`,
       });
       return;
     }
-
-    res.status(400).json({
-      status: 'error',
-      message: error.message || 'Invalid upload request.',
-    });
+    // Attach parsed fields and files to req for downstream handler
+    req.body = fields;
+    req.file = files.video || Object.values(files)[0];
+    next();
   });
 }
 
@@ -279,6 +296,7 @@ function createStoredFileName(originalName) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   return `${safeBaseName}-${timestamp}.mp4`;
 }
+
 
 async function convertMovToMp4(req, res) {
   const tempWorkDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'snowfox-video-work-'));
@@ -300,6 +318,7 @@ async function convertMovToMp4(req, res) {
   }
 
   try {
+
     if (!req.file) {
       return res.status(400).json({
         status: 'error',
@@ -307,9 +326,11 @@ async function convertMovToMp4(req, res) {
       });
     }
 
-    const originalName = req.file.originalname || 'video.MOV';
+    // Formidable file object: { filepath, originalFilename, mimetype, size }
+    const originalName = req.file.originalFilename || 'video.MOV';
     const inputPath = path.join(tempWorkDir, 'input.mov');
     const outputPath = path.join(tempWorkDir, 'output.mp4');
+    await fs.promises.copyFile(req.file.filepath, inputPath);
 
     const requestedWidthRaw = req.body?.maxWidth;
     const requestedWidth = requestedWidthRaw ? Number(requestedWidthRaw) : null;
@@ -321,7 +342,7 @@ async function convertMovToMp4(req, res) {
       });
     }
 
-    await fs.promises.rename(req.file.path, inputPath);
+
 
     if (progressId) {
       setProgress(progressId, {

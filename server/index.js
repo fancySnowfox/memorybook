@@ -216,6 +216,7 @@ app.post('/api/chat', chatRoute);
 app.get('/api/models', getModels);
 app.get('/api/config', configRoutes.config);
 app.get('/api/video/convert/progress/:progressId', getVideoConvertProgress);
+// logUploadProgress removed, formidable handles progress
 app.post('/api/video/convert', uploadMovMiddleware, convertMovToMp4);
 
 // File management endpoints

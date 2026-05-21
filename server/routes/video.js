@@ -9,8 +9,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
 const converterScriptPath = path.join(projectRoot, 'server', 'scripts', 'convert-mov-to-mp4.js');
 const persistentConvertedDir = path.join(projectRoot, 'uploads', 'converted-videos');
+const debugUploadedDir = path.join(projectRoot, 'uploads', 'debug-uploaded-videos');
 const conversionProgress = new Map();
 const PROGRESS_RETENTION_MS = 30 * 60 * 1000;
+const KEEP_VIDEO_TEMP = ['1', 'true', 'yes', 'on'].includes(String(process.env.VIDEO_KEEP_TEMP || '').toLowerCase());
+const KEEP_UPLOADED_SOURCE = ['1', 'true', 'yes', 'on'].includes(String(process.env.VIDEO_KEEP_UPLOADED_SOURCE || '').toLowerCase());
 
 const uploadDir = path.join(os.tmpdir(), 'snowfox-video-uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
@@ -87,6 +90,9 @@ function runNodeScript(scriptPath, args, handlers = {}) {
       const text = String(chunk);
       stdout += text;
       stdoutBuffer += text;
+      if (handlers.echoToConsole) {
+        process.stdout.write(text);
+      }
       flushBufferedLines('stdout', false);
     });
 
@@ -94,6 +100,9 @@ function runNodeScript(scriptPath, args, handlers = {}) {
       const text = String(chunk);
       stderr += text;
       stderrBuffer += text;
+      if (handlers.echoToConsole) {
+        process.stderr.write(text);
+      }
       flushBufferedLines('stderr', false);
     });
 
@@ -346,9 +355,17 @@ function createStoredFileName(originalName) {
   return `${safeBaseName}-${timestamp}.mp4`;
 }
 
+function createDebugUploadFileName(originalName) {
+  const baseName = path.basename(originalName, path.extname(originalName));
+  const safeBaseName = baseName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80) || 'video';
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  return `${safeBaseName}-${timestamp}.mov`;
+}
+
 
 async function convertMovToMp4(req, res) {
   const tempWorkDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'snowfox-video-work-'));
+  console.log(`[video] Temp work directory created: ${tempWorkDir}`);
   const progressId = isValidProgressId(req.body?.progressId) ? req.body.progressId : null;
   const parseState = {
     durationSeconds: null,
@@ -392,6 +409,15 @@ async function convertMovToMp4(req, res) {
     const originalName = req.file.originalFilename || 'video.MOV';
     const inputPath = path.join(tempWorkDir, 'input.mov');
     const outputPath = path.join(tempWorkDir, 'output.mp4');
+
+    if (KEEP_UPLOADED_SOURCE) {
+      await fs.promises.mkdir(debugUploadedDir, { recursive: true });
+      const debugUploadPath = path.join(debugUploadedDir, createDebugUploadFileName(originalName));
+      await fs.promises.copyFile(sourcePath, debugUploadPath);
+      console.log(`[video] Saved original uploaded file for debugging: ${debugUploadPath}`);
+    }
+
+    console.log(`[video] Copying uploaded file from ${sourcePath} to ${inputPath}`);
     await fs.promises.copyFile(sourcePath, inputPath);
 
     const requestedWidthRaw = req.body?.maxWidth;
@@ -426,6 +452,7 @@ async function convertMovToMp4(req, res) {
 
     await runNodeScript(converterScriptPath, converterArgs, {
       onLine: (line) => updateProgressFromLogLine(progressId, line, parseState),
+      echoToConsole: true,
     });
 
     const outputStats = await fs.promises.stat(outputPath);
@@ -461,7 +488,11 @@ async function convertMovToMp4(req, res) {
         });
       }
 
-      await removeDirSafe(tempWorkDir);
+      if (KEEP_VIDEO_TEMP) {
+        console.log(`[video] Keeping temp work directory for debugging: ${tempWorkDir}`);
+      } else {
+        await removeDirSafe(tempWorkDir);
+      }
       if (storedFilePath) {
         console.log(`Stored converted file: ${storedFilePath}`);
       }
@@ -484,7 +515,11 @@ async function convertMovToMp4(req, res) {
       });
     }
 
-    await removeDirSafe(tempWorkDir);
+    if (KEEP_VIDEO_TEMP) {
+      console.log(`[video] Keeping temp work directory for debugging after failure: ${tempWorkDir}`);
+    } else {
+      await removeDirSafe(tempWorkDir);
+    }
   }
 }
 

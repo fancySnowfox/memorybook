@@ -31,6 +31,22 @@ function resolveFormidableFactory() {
   return null;
 }
 
+function getFormidableFilePath(file) {
+  if (!file || typeof file !== 'object') {
+    return null;
+  }
+
+  if (typeof file.filepath === 'string' && file.filepath.length > 0) {
+    return file.filepath;
+  }
+
+  if (typeof file.path === 'string' && file.path.length > 0) {
+    return file.path;
+  }
+
+  return null;
+}
+
 function runNodeScript(scriptPath, args, handlers = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [scriptPath, ...args], {
@@ -360,7 +376,13 @@ async function convertMovToMp4(req, res) {
     }
 
     // Formidable file object: { filepath, originalFilename, mimetype, size }
-    if (!req.file.filepath) {
+    const sourcePath = getFormidableFilePath(req.file);
+    if (!sourcePath) {
+      console.error('[upload] Could not resolve uploaded file path from formidable file object:', {
+        keys: Object.keys(req.file || {}),
+        hasFilepath: Boolean(req.file && req.file.filepath),
+        hasPath: Boolean(req.file && req.file.path),
+      });
       return res.status(400).json({
         status: 'error',
         message: 'Uploaded file path not found. Please retry upload.',
@@ -370,7 +392,7 @@ async function convertMovToMp4(req, res) {
     const originalName = req.file.originalFilename || 'video.MOV';
     const inputPath = path.join(tempWorkDir, 'input.mov');
     const outputPath = path.join(tempWorkDir, 'output.mp4');
-    await fs.promises.copyFile(req.file.filepath, inputPath);
+    await fs.promises.copyFile(sourcePath, inputPath);
 
     const requestedWidthRaw = req.body?.maxWidth;
     const requestedWidth = requestedWidthRaw ? Number(requestedWidthRaw) : null;

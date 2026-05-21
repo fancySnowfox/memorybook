@@ -7,7 +7,6 @@
  */
 
 import { HuggingFaceEmbedding } from '@llamaindex/huggingface';
-import { createRequire } from 'module';
 import { readFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -55,14 +54,31 @@ async function initFaqMatcher() {
   initPromise = (async () => {
     try {
       const raw = await readFile(FAQ_PATH, 'utf-8');
-      faqEntries = (raw);
+      const parsed = JSON.parse(raw);
+
+      if (!Array.isArray(parsed)) {
+        throw new Error('FAQ data must be a JSON array of entries.');
+      }
+
+      faqEntries = parsed.filter((entry) =>
+        entry
+        && typeof entry.id === 'string'
+        && Array.isArray(entry.questions)
+        && typeof entry.answer === 'string'
+      );
 
       const model = getEmbedModel();
 
       // Flatten all questions with their parent FAQ id
       const allQuestions = faqEntries.flatMap((entry) =>
-        entry.questions.map((q) => ({ faqId: entry.id, question: q }))
+        entry.questions
+          .filter((q) => typeof q === 'string' && q.trim())
+          .map((q) => ({ faqId: entry.id, question: q }))
       );
+
+      if (allQuestions.length === 0) {
+        throw new Error('No valid FAQ questions found in app-faq.json.');
+      }
 
       console.log(`[faq-matcher] pre-computing embeddings for ${allQuestions.length} FAQ questions…`);
 

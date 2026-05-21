@@ -7,7 +7,7 @@ import session from 'express-session';
 import { spawn } from 'node:child_process';
 import chatRoute, { getModels } from './routes/chat.js';
 import { configRoutes } from './routes/config.js';
-import { uploadMovMiddleware, convertMovToMp4 } from './routes/video.js';
+import { uploadMovMiddleware, convertMovToMp4, getVideoConvertProgress } from './routes/video.js';
 import { uploadPdfMiddleware, handlePdfUpload, listFiles, serveFile, deleteFile } from './routes/files.js';
 import { checkApiConnectivity } from './utils/health-check.js';
 import { getRagStatus, reindexRag } from './utils/rag-llamaindex.js';
@@ -215,6 +215,7 @@ app.get('/api/health', async (req, res) => {
 app.post('/api/chat', chatRoute);
 app.get('/api/models', getModels);
 app.get('/api/config', configRoutes.config);
+app.get('/api/video/convert/progress/:progressId', getVideoConvertProgress);
 app.post('/api/video/convert', uploadMovMiddleware, convertMovToMp4);
 
 // File management endpoints

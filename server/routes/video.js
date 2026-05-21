@@ -9,6 +9,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
 const converterScriptPath = path.join(projectRoot, 'server', 'scripts', 'convert-mov-to-mp4.js');
 const persistentConvertedDir = path.join(projectRoot, 'uploads', 'converted-videos');
+const conversionProgress = new Map();
+const PROGRESS_RETENTION_MS = 30 * 60 * 1000;
 
 const uploadDir = path.join(os.tmpdir(), 'snowfox-video-uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
@@ -27,7 +29,7 @@ const upload = multer({
   },
 });
 
-function runNodeScript(scriptPath, args) {
+function runNodeScript(scriptPath, args, handlers = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [scriptPath, ...args], {
       stdio: 'pipe',
@@ -35,13 +37,46 @@ function runNodeScript(scriptPath, args) {
 
     let stdout = '';
     let stderr = '';
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
+
+    function flushBufferedLines(source, force) {
+      if (source === 'stdout') {
+        const lines = stdoutBuffer.split(/\r?\n/);
+        stdoutBuffer = lines.pop() || '';
+        for (const line of lines) {
+          handlers.onLine?.(line, 'stdout');
+        }
+        if (force && stdoutBuffer) {
+          handlers.onLine?.(stdoutBuffer, 'stdout');
+          stdoutBuffer = '';
+        }
+        return;
+      }
+
+      const lines = stderrBuffer.split(/\r?\n/);
+      stderrBuffer = lines.pop() || '';
+      for (const line of lines) {
+        handlers.onLine?.(line, 'stderr');
+      }
+      if (force && stderrBuffer) {
+        handlers.onLine?.(stderrBuffer, 'stderr');
+        stderrBuffer = '';
+      }
+    }
 
     child.stdout.on('data', (chunk) => {
-      stdout += String(chunk);
+      const text = String(chunk);
+      stdout += text;
+      stdoutBuffer += text;
+      flushBufferedLines('stdout', false);
     });
 
     child.stderr.on('data', (chunk) => {
-      stderr += String(chunk);
+      const text = String(chunk);
+      stderr += text;
+      stderrBuffer += text;
+      flushBufferedLines('stderr', false);
     });
 
     child.on('error', (error) => {
@@ -49,12 +84,141 @@ function runNodeScript(scriptPath, args) {
     });
 
     child.on('close', (code) => {
+      flushBufferedLines('stdout', true);
+      flushBufferedLines('stderr', true);
       if (code !== 0) {
         reject(new Error(stderr || stdout || `Converter exited with code ${code}`));
         return;
       }
       resolve({ stdout, stderr });
     });
+  });
+}
+
+function isValidProgressId(value) {
+  return typeof value === 'string' && /^[a-zA-Z0-9_-]{8,80}$/.test(value);
+}
+
+function toSecondsFromTimecode(timecode) {
+  if (!timecode || typeof timecode !== 'string') {
+    return null;
+  }
+
+  const parts = timecode.split(':');
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1]);
+  const seconds = Number(parts[2]);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes) || !Number.isFinite(seconds)) {
+    return null;
+  }
+
+  return (hours * 3600) + (minutes * 60) + seconds;
+}
+
+function setProgress(progressId, patch) {
+  if (!progressId) {
+    return;
+  }
+
+  const current = conversionProgress.get(progressId) || {
+    status: 'queued',
+    message: 'Queued',
+    percent: 0,
+    createdAt: new Date().toISOString(),
+  };
+
+  const next = {
+    ...current,
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  };
+
+  conversionProgress.set(progressId, next);
+}
+
+function scheduleProgressCleanup(progressId) {
+  if (!progressId) {
+    return;
+  }
+
+  setTimeout(() => {
+    const entry = conversionProgress.get(progressId);
+    if (!entry) {
+      return;
+    }
+
+    const age = Date.now() - Date.parse(entry.updatedAt || entry.createdAt || 0);
+    if (age >= PROGRESS_RETENTION_MS) {
+      conversionProgress.delete(progressId);
+    }
+  }, PROGRESS_RETENTION_MS + 1000);
+}
+
+function updateProgressFromLogLine(progressId, line, parseState) {
+  if (!progressId || !line) {
+    return;
+  }
+
+  const attemptMatch = line.match(/Attempt\s+(\d+)\/(\d+)/i);
+  if (attemptMatch) {
+    parseState.attempt = Number(attemptMatch[1]);
+    parseState.attemptTotal = Number(attemptMatch[2]);
+    setProgress(progressId, {
+      status: 'converting',
+      message: `Encoding attempt ${parseState.attempt}/${parseState.attemptTotal}`,
+      attempt: parseState.attempt,
+      attemptTotal: parseState.attemptTotal,
+    });
+    return;
+  }
+
+  const durationMatch = line.match(/Duration:\s*([0-9:.]+)/i);
+  if (durationMatch) {
+    const durationSeconds = toSecondsFromTimecode(durationMatch[1]);
+    if (durationSeconds) {
+      parseState.durationSeconds = durationSeconds;
+    }
+    return;
+  }
+
+  const timeMatch = line.match(/time=\s*([0-9:.]+)/i);
+  if (!timeMatch) {
+    return;
+  }
+
+  const elapsedSeconds = toSecondsFromTimecode(timeMatch[1]);
+  if (!elapsedSeconds) {
+    return;
+  }
+
+  parseState.lastElapsedSeconds = elapsedSeconds;
+  const now = Date.now();
+  if ((now - parseState.lastEmitMs) < 700) {
+    return;
+  }
+  parseState.lastEmitMs = now;
+
+  let percent = null;
+  if (parseState.durationSeconds) {
+    percent = Math.min(99, Math.max(1, Math.round((elapsedSeconds / parseState.durationSeconds) * 100)));
+  }
+
+  const speedMatch = line.match(/speed=\s*([0-9.]+)x/i);
+  const speed = speedMatch ? `${speedMatch[1]}x` : null;
+
+  setProgress(progressId, {
+    status: 'converting',
+    message: percent ? `Converting... ${percent}%` : 'Converting...',
+    percent,
+    elapsedSeconds,
+    durationSeconds: parseState.durationSeconds || null,
+    speed,
+    attempt: parseState.attempt || null,
+    attemptTotal: parseState.attemptTotal || null,
   });
 }
 
@@ -118,6 +282,22 @@ function createStoredFileName(originalName) {
 
 async function convertMovToMp4(req, res) {
   const tempWorkDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'snowfox-video-work-'));
+  const progressId = isValidProgressId(req.body?.progressId) ? req.body.progressId : null;
+  const parseState = {
+    durationSeconds: null,
+    lastElapsedSeconds: 0,
+    lastEmitMs: 0,
+    attempt: null,
+    attemptTotal: null,
+  };
+
+  if (progressId) {
+    setProgress(progressId, {
+      status: 'queued',
+      message: 'Upload received. Preparing conversion...',
+      percent: 0,
+    });
+  }
 
   try {
     if (!req.file) {
@@ -143,6 +323,14 @@ async function convertMovToMp4(req, res) {
 
     await fs.promises.rename(req.file.path, inputPath);
 
+    if (progressId) {
+      setProgress(progressId, {
+        status: 'converting',
+        message: 'Starting ffmpeg conversion...',
+        percent: 1,
+      });
+    }
+
     const converterArgs = [
       inputPath,
       outputPath,
@@ -153,9 +341,9 @@ async function convertMovToMp4(req, res) {
       converterArgs.push(`--max-width=${requestedWidth}`);
     }
 
-    await runNodeScript(converterScriptPath, [
-      ...converterArgs,
-    ]);
+    await runNodeScript(converterScriptPath, converterArgs, {
+      onLine: (line) => updateProgressFromLogLine(progressId, line, parseState),
+    });
 
     const outputStats = await fs.promises.stat(outputPath);
     const outputSizeMb = outputStats.size / (1024 * 1024);
@@ -171,6 +359,16 @@ async function convertMovToMp4(req, res) {
     }
 
     res.setHeader('X-Output-Size-MB', outputSizeMb.toFixed(2));
+
+    if (progressId) {
+      setProgress(progressId, {
+        status: 'completed',
+        message: 'Conversion complete. Download started.',
+        percent: 100,
+        outputSizeMb: Number(outputSizeMb.toFixed(2)),
+      });
+      scheduleProgressCleanup(progressId);
+    }
 
     res.download(outputPath, downloadName, async (downloadError) => {
       if (downloadError && !res.headersSent) {
@@ -188,6 +386,14 @@ async function convertMovToMp4(req, res) {
   } catch (error) {
     console.error('Video conversion error:', error);
 
+    if (progressId) {
+      setProgress(progressId, {
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Video conversion failed',
+      });
+      scheduleProgressCleanup(progressId);
+    }
+
     if (!res.headersSent) {
       res.status(500).json({
         status: 'error',
@@ -199,4 +405,29 @@ async function convertMovToMp4(req, res) {
   }
 }
 
-export { uploadMovMiddleware, convertMovToMp4 };
+function getVideoConvertProgress(req, res) {
+  const progressId = req.params?.progressId;
+  if (!isValidProgressId(progressId)) {
+    res.status(400).json({
+      status: 'error',
+      message: 'Invalid progress id.',
+    });
+    return;
+  }
+
+  const progress = conversionProgress.get(progressId);
+  if (!progress) {
+    res.status(404).json({
+      status: 'error',
+      message: 'Progress id not found or expired.',
+    });
+    return;
+  }
+
+  res.json({
+    status: 'success',
+    progress,
+  });
+}
+
+export { uploadMovMiddleware, convertMovToMp4, getVideoConvertProgress };

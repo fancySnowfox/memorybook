@@ -431,6 +431,14 @@
         statusEl.className = `text-sm min-h-[1.25rem] ${isError ? 'text-red-600' : 'text-gray-600'}`;
       }
 
+      function createProgressId() {
+        if (window.crypto?.randomUUID) {
+          return window.crypto.randomUUID().replace(/-/g, '');
+        }
+
+        return `job${Date.now()}${Math.random().toString(36).slice(2, 10)}`;
+      }
+
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
 
@@ -443,8 +451,51 @@
         button.disabled = true;
         setStatus('Converting video… this can take a minute for larger files.', false);
 
+        const progressId = createProgressId();
+        let progressPoller = null;
+
+        async function pollProgress() {
+          try {
+            const progressRes = await fetch(`/api/video/convert/progress/${encodeURIComponent(progressId)}`);
+            if (!progressRes.ok) {
+              return;
+            }
+
+            const payload = await progressRes.json();
+            const progress = payload?.progress;
+            if (!progress) {
+              return;
+            }
+
+            if (progress.status === 'error' && progress.message) {
+              setStatus(progress.message, true);
+              return;
+            }
+
+            const percentText = Number.isFinite(progress.percent)
+              ? `${progress.percent}%`
+              : null;
+            const attemptText = (progress.attempt && progress.attemptTotal)
+              ? ` attempt ${progress.attempt}/${progress.attemptTotal}`
+              : '';
+            const speedText = progress.speed ? ` speed ${progress.speed}` : '';
+
+            if (progress.message || percentText) {
+              const base = progress.message || 'Converting...';
+              const withPercent = percentText && !base.includes('%') ? `${base} ${percentText}` : base;
+              setStatus(`${withPercent}${attemptText}${speedText}`, false);
+            }
+          } catch {
+            // Ignore transient polling failures while conversion request is still running.
+          }
+        }
+
+        progressPoller = window.setInterval(pollProgress, 1200);
+        pollProgress();
+
         try {
           const formData = new FormData();
+          formData.append('progressId', progressId);
           formData.append('video', file);
           if (maxWidthSelect.value) {
             formData.append('maxWidth', maxWidthSelect.value);
@@ -492,6 +543,9 @@
         } catch (error) {
           setStatus(error instanceof Error ? error.message : 'Conversion failed.', true);
         } finally {
+          if (progressPoller) {
+            window.clearInterval(progressPoller);
+          }
           button.disabled = false;
         }
       });

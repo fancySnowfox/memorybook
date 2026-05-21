@@ -66,7 +66,21 @@ function parseArgs(argv) {
 
 function runCommand(command, args, label) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: 'inherit' });
+    const child = spawn(command, args, { stdio: 'pipe' });
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (chunk) => {
+      const text = String(chunk);
+      stdout += text;
+      process.stdout.write(text);
+    });
+
+    child.stderr.on('data', (chunk) => {
+      const text = String(chunk);
+      stderr += text;
+      process.stderr.write(text);
+    });
 
     child.on('error', (error) => {
       reject(new Error(`${label} failed to start: ${error.message}`));
@@ -74,7 +88,8 @@ function runCommand(command, args, label) {
 
     child.on('close', (code) => {
       if (code !== 0) {
-        reject(new Error(`${label} failed with exit code ${code}`));
+        const details = (stderr || stdout || '').trim();
+        reject(new Error(`${label} failed with exit code ${code}${details ? `\n${details}` : ''}`));
         return;
       }
       resolve();
@@ -109,6 +124,43 @@ async function ensureFfmpegAvailable() {
   }
 }
 
+async function commandOutput(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (chunk) => {
+      stdout += String(chunk);
+    });
+
+    child.stderr.on('data', (chunk) => {
+      stderr += String(chunk);
+    });
+
+    child.on('error', (error) => {
+      reject(error);
+    });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        resolve({ ok: false, stdout, stderr, code });
+        return;
+      }
+      resolve({ ok: true, stdout, stderr, code });
+    });
+  });
+}
+
+async function detectEncodingMode(ffmpegCommand) {
+  const encoders = await commandOutput(ffmpegCommand, ['-hide_banner', '-encoders']);
+  const supportsLibx264 = encoders.ok && /\blibx264\b/.test(`${encoders.stdout}\n${encoders.stderr}`);
+  if (supportsLibx264) {
+    return 'crf';
+  }
+  return 'bitrate';
+}
+
 async function main() {
   try {
     const { inputPath, outputPath, options } = parseArgs(process.argv.slice(2));
@@ -122,6 +174,10 @@ async function main() {
     }
 
     const ffmpegCommand = await ensureFfmpegAvailable();
+    const encodingMode = await detectEncodingMode(ffmpegCommand);
+    if (encodingMode === 'bitrate') {
+      console.warn('libx264 or CRF mode unavailable. Falling back to bitrate-based encoding.');
+    }
 
     const maxBytes = options.maxMb * 1024 * 1024;
     const attempts = [
@@ -162,16 +218,34 @@ async function main() {
         inputPath,
         '-vf',
         videoFilter,
-        '-c:v',
-        'libx264',
-        '-crf',
-        String(attempt.crf),
-        '-pix_fmt',
-        'yuv420p',
-        '-profile:v',
-        'high',
-        '-level',
-        '4.1',
+      ];
+
+      if (encodingMode === 'crf') {
+        ffmpegArgs.push(
+          '-c:v',
+          'libx264',
+          '-crf',
+          String(attempt.crf),
+          '-pix_fmt',
+          'yuv420p',
+          '-profile:v',
+          'high',
+          '-level',
+          '4.1'
+        );
+      } else {
+        const fallbackVideoBitrateKbps = [2200, 1600, 1100, 800, 600, 450][i] || 450;
+        ffmpegArgs.push(
+          '-c:v',
+          'mpeg4',
+          '-b:v',
+          `${fallbackVideoBitrateKbps}k`,
+          '-pix_fmt',
+          'yuv420p'
+        );
+      }
+
+      ffmpegArgs.push(
         '-c:a',
         'aac',
         '-b:a',
@@ -179,7 +253,7 @@ async function main() {
         '-movflags',
         '+faststart',
         tempOutputPath,
-      ];
+      );
 
       await runCommand(ffmpegCommand, ffmpegArgs, 'ffmpeg encode');
 

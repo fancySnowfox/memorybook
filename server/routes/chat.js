@@ -14,7 +14,9 @@ function sanitizeBrowserId(browserId) {
 
 
 
-async function getCurrentUserUploadCount(browserId) {
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v', '.wmv', '.flv']);
+
+async function getCurrentUserUploadCount(browserId, extensionFilter = null) {
   const safeId = sanitizeBrowserId(browserId);
   if (!safeId) {
     return { count: 0, scoped: false };
@@ -22,7 +24,10 @@ async function getCurrentUserUploadCount(browserId) {
 
   const userDir = path.join(UPLOADS_DIR, safeId);
   const entries = await fs.readdir(userDir, { withFileTypes: true }).catch(() => []);
-  const count = entries.filter((entry) => entry.isFile()).length;
+  const files = entries.filter((entry) => entry.isFile());
+  const count = extensionFilter
+    ? files.filter((f) => extensionFilter.has(path.extname(f.name).toLowerCase())).length
+    : files.length;
   return { count, scoped: true };
 }
 
@@ -32,6 +37,15 @@ function buildUploadCountAnswer({ count, scoped }) {
   }
 
   const noun = count === 1 ? 'file' : 'files';
+  return `In your current Memorybook Creator folder, there are ${count} uploaded ${noun}.`;
+}
+
+function buildVideoUploadCountAnswer({ count, scoped }) {
+  if (!scoped) {
+    return 'I could not determine your current folder identity, so I cannot count your uploaded video files right now.';
+  }
+
+  const noun = count === 1 ? 'video file' : 'video files';
   return `In your current Memorybook Creator folder, there are ${count} uploaded ${noun}.`;
 }
 
@@ -256,6 +270,17 @@ async function chat(req, res) {
             score: faqMatch.score.toFixed(3),
             browserId: sanitizeBrowserId(browserId) || 'missing',
             uploadCount: uploadStats.count,
+            scope: chatScope,
+          });
+        } else if (faqMatch.isDynamic && faqMatch.faqId === 'video_upload_count') {
+          const uploadStats = await getCurrentUserUploadCount(browserId, VIDEO_EXTENSIONS);
+          localAnswer = buildVideoUploadCountAnswer(uploadStats);
+          console.log('[chat] locally answered FAQ (semantic)', {
+            requestId,
+            faqId: faqMatch.faqId,
+            score: faqMatch.score.toFixed(3),
+            browserId: sanitizeBrowserId(browserId) || 'missing',
+            videoUploadCount: uploadStats.count,
             scope: chatScope,
           });
         } else if (!faqMatch.isDynamic) {

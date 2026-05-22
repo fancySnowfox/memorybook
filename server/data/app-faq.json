@@ -46,6 +46,18 @@
     "answer": "__dynamic__"
   },
   {
+    "id": "video_upload_count",
+    "questions": [
+      "How many video files did I upload?",
+      "How many videos are in my vault?",
+      "How many MOV files have I uploaded?",
+      "How many MP4 files do I have?",
+      "What is my video upload count?",
+      "How many video uploads do I have?"
+    ],
+    "answer": "__dynamic__"
+  },
+  {
     "id": "supported_formats",
     "questions": [
       "What file types can I upload?",

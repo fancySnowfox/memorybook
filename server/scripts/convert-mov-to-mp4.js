@@ -177,7 +177,7 @@ async function main() {
         fs.unlinkSync(tempOutputPath);
       }
 
-      const videoFilter = `scale=${attempt.width}:-2:force_original_aspect_ratio=decrease`;
+      const videoFilter = `scale=w=${attempt.width}:h=-2:force_original_aspect_ratio=decrease`;
       const ffmpegArgs = [
         '-y',
         '-i',

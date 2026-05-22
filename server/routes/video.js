@@ -548,4 +548,74 @@ function getVideoConvertProgress(req, res) {
   });
 }
 
-export { uploadMovMiddleware, convertMovToMp4, getVideoConvertProgress };
+async function listStoredConvertedVideos(req, res) {
+  try {
+    await fs.promises.mkdir(persistentConvertedDir, { recursive: true });
+    const entries = await fs.promises.readdir(persistentConvertedDir, { withFileTypes: true });
+
+    const files = [];
+    for (const entry of entries) {
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      if (!/\.mp4$/i.test(entry.name)) {
+        continue;
+      }
+
+      const fullPath = path.join(persistentConvertedDir, entry.name);
+      const stats = await fs.promises.stat(fullPath);
+      files.push({
+        name: entry.name,
+        size: stats.size,
+        modifiedAt: stats.mtime.toISOString(),
+      });
+    }
+
+    files.sort((a, b) => Date.parse(b.modifiedAt) - Date.parse(a.modifiedAt));
+    res.json({ status: 'success', files });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Failed to list converted videos.',
+    });
+  }
+}
+
+async function downloadStoredConvertedVideo(req, res) {
+  try {
+    const requestedName = req.params?.filename;
+    if (!requestedName || typeof requestedName !== 'string') {
+      res.status(400).json({ status: 'error', message: 'Missing filename.' });
+      return;
+    }
+
+    const safeName = path.basename(requestedName);
+    if (!/\.mp4$/i.test(safeName)) {
+      res.status(400).json({ status: 'error', message: 'Only .mp4 files are supported.' });
+      return;
+    }
+
+    const fullPath = path.join(persistentConvertedDir, safeName);
+    await fs.promises.access(fullPath, fs.constants.R_OK);
+    res.download(fullPath, safeName);
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      res.status(404).json({ status: 'error', message: 'File not found.' });
+      return;
+    }
+
+    res.status(500).json({
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Failed to download converted video.',
+    });
+  }
+}
+
+export {
+  uploadMovMiddleware,
+  convertMovToMp4,
+  getVideoConvertProgress,
+  listStoredConvertedVideos,
+  downloadStoredConvertedVideo,
+};

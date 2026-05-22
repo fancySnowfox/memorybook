@@ -7,7 +7,13 @@ import session from 'express-session';
 import { spawn } from 'node:child_process';
 import chatRoute, { getModels } from './routes/chat.js';
 import { configRoutes } from './routes/config.js';
-import { uploadMovMiddleware, convertMovToMp4, getVideoConvertProgress } from './routes/video.js';
+import {
+  uploadMovMiddleware,
+  convertMovToMp4,
+  getVideoConvertProgress,
+  listStoredConvertedVideos,
+  downloadStoredConvertedVideo,
+} from './routes/video.js';
 import { uploadPdfMiddleware, handlePdfUpload, listFiles, serveFile, deleteFile } from './routes/files.js';
 import { checkApiConnectivity } from './utils/health-check.js';
 import { getRagStatus, reindexRag } from './utils/rag-llamaindex.js';
@@ -216,6 +222,8 @@ app.post('/api/chat', chatRoute);
 app.get('/api/models', getModels);
 app.get('/api/config', configRoutes.config);
 app.get('/api/video/convert/progress/:progressId', getVideoConvertProgress);
+app.get('/api/video/stored', listStoredConvertedVideos);
+app.get('/api/video/stored/:filename', downloadStoredConvertedVideo);
 // logUploadProgress removed, formidable handles progress
 app.post('/api/video/convert', uploadMovMiddleware, convertMovToMp4);
 

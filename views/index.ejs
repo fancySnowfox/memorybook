@@ -151,6 +151,27 @@
         </div>
       </div>
 
+      <!-- Stored Converted Videos -->
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <svg class="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14m-6 4h4a2 2 0 002-2V8a2 2 0 00-2-2H9a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Stored Converted Videos
+          </h2>
+          <button id="refreshStoredVideosBtn" class="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+        </div>
+        <div id="storedVideoList">
+          <p class="text-gray-400 text-sm text-center py-8">Loading converted videos…</p>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -198,6 +219,7 @@
       toolsDrawer.classList.add('open');
       drawerOverlay.classList.add('open');
       loadFiles();
+      loadStoredVideos();
     });
 
     function closeDrawer() {
@@ -640,6 +662,9 @@
           const storedFile = response.headers.get('X-Stored-File');
           const storedText = storedFile ? ` Stored on server as ${storedFile}.` : '';
           setStatus(`Done.${sizeText}${storedText}`, false);
+          if (storedFile) {
+            loadStoredVideos();
+          }
         } catch (error) {
           setStatus(error instanceof Error ? error.message : 'Conversion failed.', true);
         } finally {
@@ -834,6 +859,75 @@
       }
     }
 
+    async function loadStoredVideos() {
+      const listEl = document.getElementById('storedVideoList');
+      if (!listEl) return;
+
+      listEl.innerHTML = '<p class="text-gray-400 text-sm text-center py-8">Loading…</p>';
+
+      try {
+        const response = await fetch('/api/video/stored');
+        const { raw, json } = await readApiResponse(response);
+        if (!response.ok) {
+          let message = 'Failed to load converted videos.';
+          if (json?.message) {
+            message = json.message;
+          } else if (raw && raw.trim().startsWith('<')) {
+            message = `Failed to load converted videos (${response.status}). Upstream returned HTML (likely Nginx/proxy).`;
+          } else if (raw.trim()) {
+            message = raw.trim().slice(0, 240);
+          }
+          throw new Error(message);
+        }
+
+        const files = json?.files || [];
+        if (files.length === 0) {
+          listEl.innerHTML = '<p class="text-gray-400 text-sm text-center py-8">No converted videos stored yet.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '';
+        const table = document.createElement('table');
+        table.className = 'w-full text-sm text-left';
+        table.innerHTML = `
+          <thead>
+            <tr class="border-b border-gray-200 text-gray-500 text-xs uppercase">
+              <th class="py-2 pr-4 font-medium">File Name</th>
+              <th class="py-2 pr-4 font-medium">Size</th>
+              <th class="py-2 pr-4 font-medium">Modified</th>
+              <th class="py-2 font-medium text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="storedVideoTableBody"></tbody>
+        `;
+        listEl.appendChild(table);
+
+        const tbody = document.getElementById('storedVideoTableBody');
+        files.forEach((file) => {
+          const sizeMb = (Number(file.size) / (1024 * 1024)).toFixed(2);
+          const date = new Date(file.modifiedAt).toLocaleString();
+          const tr = document.createElement('tr');
+          tr.className = 'border-b border-gray-100 hover:bg-gray-50';
+          tr.innerHTML = `
+            <td class="py-3 pr-4 text-gray-800 font-medium flex items-center gap-2">
+              <svg class="h-4 w-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14m-6 4h4a2 2 0 002-2V8a2 2 0 00-2-2H9a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              ${escapeHtml(file.name)}
+            </td>
+            <td class="py-3 pr-4 text-gray-500">${sizeMb} MB</td>
+            <td class="py-3 pr-4 text-gray-500">${escapeHtml(date)}</td>
+            <td class="py-3 text-right">
+              <a href="/api/video/stored/${encodeURIComponent(file.name)}" class="text-blue-600 hover:text-blue-800" download>Download</a>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (error) {
+        listEl.innerHTML = `<p class="text-red-500 text-sm text-center py-8">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
     function escapeHtml(str) {
       return String(str)
         .replace(/&/g, '&amp;')
@@ -843,6 +937,7 @@
     }
 
     document.getElementById('refreshFilesBtn').addEventListener('click', loadFiles);
+    document.getElementById('refreshStoredVideosBtn').addEventListener('click', loadStoredVideos);
     document.getElementById('resetFolderBtn').addEventListener('click', () => {
       if (!confirm('Create a new folder identity? You will no longer see files from the current folder in this browser.')) {
         return;
@@ -853,6 +948,7 @@
       loadFiles();
     });
     loadFiles();
+    loadStoredVideos();
 
     // Show stable browser-owner folder ID in the header.
     setFolderLabel();

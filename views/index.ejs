@@ -917,11 +917,38 @@
             </td>
             <td class="py-3 pr-4 text-gray-500">${sizeMb} MB</td>
             <td class="py-3 pr-4 text-gray-500">${escapeHtml(date)}</td>
-            <td class="py-3 text-right">
+            <td class="py-3 text-right space-x-3">
               <a href="/api/video/stored/${encodeURIComponent(file.name)}" class="text-blue-600 hover:text-blue-800" download>Download</a>
+              <button class="text-red-500 hover:text-red-700 stored-delete-btn" data-name="${escapeHtml(file.name)}">Delete</button>
             </td>
           `;
           tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.stored-delete-btn').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            if (!confirm(`Delete stored video "${btn.dataset.name}"?`)) return;
+            try {
+              const res = await fetch(`/api/video/stored/${encodeURIComponent(btn.dataset.name)}/delete`, {
+                method: 'POST',
+              });
+              const { raw, json } = await readApiResponse(res);
+              if (!res.ok) {
+                let message = 'Delete failed.';
+                if (json?.message) {
+                  message = json.message;
+                } else if (raw && raw.trim().startsWith('<')) {
+                  message = `Delete failed (${res.status}). Upstream returned HTML (likely Nginx/proxy).`;
+                } else if (raw.trim()) {
+                  message = raw.trim().slice(0, 240);
+                }
+                throw new Error(message);
+              }
+              loadStoredVideos();
+            } catch (error) {
+              alert(error instanceof Error ? error.message : 'Delete failed.');
+            }
+          });
         });
       } catch (error) {
         listEl.innerHTML = `<p class="text-red-500 text-sm text-center py-8">${escapeHtml(error.message)}</p>`;

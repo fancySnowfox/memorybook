@@ -13,6 +13,7 @@ import {
   getVideoConvertProgress,
   listStoredConvertedVideos,
   downloadStoredConvertedVideo,
+  deleteStoredConvertedVideo,
 } from './routes/video.js';
 import { uploadPdfMiddleware, handlePdfUpload, listFiles, serveFile, deleteFile } from './routes/files.js';
 import { checkApiConnectivity } from './utils/health-check.js';
@@ -224,6 +225,8 @@ app.get('/api/config', configRoutes.config);
 app.get('/api/video/convert/progress/:progressId', getVideoConvertProgress);
 app.get('/api/video/stored', listStoredConvertedVideos);
 app.get('/api/video/stored/:filename', downloadStoredConvertedVideo);
+app.delete('/api/video/stored/:filename', deleteStoredConvertedVideo);
+app.post('/api/video/stored/:filename/delete', deleteStoredConvertedVideo);
 // logUploadProgress removed, formidable handles progress
 app.post('/api/video/convert', uploadMovMiddleware, convertMovToMp4);
 

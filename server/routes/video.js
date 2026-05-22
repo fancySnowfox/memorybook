@@ -612,10 +612,41 @@ async function downloadStoredConvertedVideo(req, res) {
   }
 }
 
+async function deleteStoredConvertedVideo(req, res) {
+  try {
+    const requestedName = req.params?.filename;
+    if (!requestedName || typeof requestedName !== 'string') {
+      res.status(400).json({ status: 'error', message: 'Missing filename.' });
+      return;
+    }
+
+    const safeName = path.basename(requestedName);
+    if (!/\.mp4$/i.test(safeName)) {
+      res.status(400).json({ status: 'error', message: 'Only .mp4 files are supported.' });
+      return;
+    }
+
+    const fullPath = path.join(persistentConvertedDir, safeName);
+    await fs.promises.unlink(fullPath);
+    res.json({ status: 'success', message: 'Stored converted video deleted.' });
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      res.status(404).json({ status: 'error', message: 'File not found.' });
+      return;
+    }
+
+    res.status(500).json({
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Failed to delete converted video.',
+    });
+  }
+}
+
 export {
   uploadMovMiddleware,
   convertMovToMp4,
   getVideoConvertProgress,
   listStoredConvertedVideos,
   downloadStoredConvertedVideo,
+  deleteStoredConvertedVideo,
 };

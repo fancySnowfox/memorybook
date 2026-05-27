@@ -29,12 +29,12 @@ function getLocalDocumentFiles(entries) {
     .filter(
       (entry) =>
         entry.isFile() &&
-        (/\.(pdf|pptx?)$/i.test(entry.name))
+        (/\.(pdf|pptx?|odp)$/i.test(entry.name))
     )
     .map((entry) => ({
       path: path.join(FILES_DIR, entry.name),
       name: entry.name,
-      type: /\.pdf$/i.test(entry.name) ? 'pdf' : 'pptx',
+      type: /\.pdf$/i.test(entry.name) ? 'pdf' : /\.odp$/i.test(entry.name) ? 'odp' : 'pptx',
     }));
 }
 
@@ -81,45 +81,53 @@ async function loadPdfAsDocument(filePath) {
   });
 }
 
-async function loadPowerPointAsDocument(filePath) {
+async function loadOdpAsDocument(filePath) {
   const fileBuffer = await fs.readFile(filePath);
   const zip = new JSZip();
   await zip.loadAsync(fileBuffer);
 
   const textParts = [];
 
-  // Extract text from slide XMLs
-  // PPTX structure: ppt/slides/slide1.xml, slide2.xml, etc.
-  for (const [filename, file] of Object.entries(zip.files)) {
-    if (/^ppt\/slides\/slide\d+\.xml$/.test(filename) && !file.dir) {
-      try {
-        const xmlContent = await file.async('string');
-        const parsed = await parseStringPromise(xmlContent);
+  // ODP uses content.xml with OpenDocument namespace
+  try {
+    const contentXml = zip.file('content.xml');
+    if (contentXml) {
+      const xmlContent = await contentXml.async('string');
+      const parsed = await parseStringPromise(xmlContent);
 
-        // Navigate the XML structure to extract text runs
-        const slide = parsed?.['p:sld']?.['p:cSld']?.[0]?.['p:spTree']?.[0]?.['p:sp'] || [];
-        const slideArray = Array.isArray(slide) ? slide : [slide];
+      // Navigate ODP XML structure: office:document-content > office:body > draw:page > draw:frame > draw:text-box
+      const pages = parsed?.['office:document-content']?.['office:body']?.[0]?.['draw:page'] || [];
+      const pageArray = Array.isArray(pages) ? pages : [pages];
 
-        for (const shape of slideArray) {
-          const textBody = shape?.['p:txBody']?.[0]?.['a:p'] || [];
-          const paragraphs = Array.isArray(textBody) ? textBody : [textBody];
+      for (const page of pageArray) {
+        const frames = page?.['draw:frame'] || [];
+        const frameArray = Array.isArray(frames) ? frames : [frames];
 
-          for (const paragraph of paragraphs) {
-            const runs = paragraph?.['a:r'] || [];
-            const runArray = Array.isArray(runs) ? runs : [runs];
+        for (const frame of frameArray) {
+          const textBoxes = frame?.['draw:text-box'] || [];
+          const textBoxArray = Array.isArray(textBoxes) ? textBoxes : [textBoxes];
 
-            for (const run of runArray) {
-              const runText = run?.['a:t']?.[0];
-              if (runText) {
-                textParts.push(runText);
+          for (const textBox of textBoxArray) {
+            const paragraphs = textBox?.['text:p'] || [];
+            const paragraphArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
+
+            for (const paragraph of paragraphArray) {
+              const runs = paragraph?.['text:span'] || [];
+              const runArray = Array.isArray(runs) ? runs : [runs];
+
+              for (const run of runArray) {
+                const runText = run?.['_'];
+                if (runText) {
+                  textParts.push(runText);
+                }
               }
             }
           }
         }
-      } catch (slideError) {
-        console.warn(`Failed to parse slide: ${filename}`, slideError);
       }
     }
+  } catch (contentError) {
+    console.warn(`Failed to parse ODP content.xml: ${filePath}`, contentError);
   }
 
   const text = textParts.join(' ').trim();
@@ -132,7 +140,64 @@ async function loadPowerPointAsDocument(filePath) {
     text,
     metadata: {
       source: path.basename(filePath),
-      type: 'powerpoint',
+      type: 'odp',
+    },
+  });
+}
+
+
+
+async function loadPptxAsDocument(filePath) {
+  const fileBuffer = await fs.readFile(filePath);
+  const zip = new JSZip();
+  await zip.loadAsync(fileBuffer);
+
+  const textParts = [];
+
+  try {
+    const entries = Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f));
+
+    for (const entry of entries) {
+      const file = zip.file(entry);
+      if (!file) continue;
+
+      const xmlContent = await file.async('string');
+      const parsed = await parseStringPromise(xmlContent);
+      const slideShapes = parsed?.['p:sld']?.['p:cSld']?.[0]?.['p:spTree']?.[0]?.['p:sp'] || [];
+      const shapeArray = Array.isArray(slideShapes) ? slideShapes : [slideShapes];
+
+      for (const shape of shapeArray) {
+        const paragraphs = shape?.['p:txBody']?.[0]?.['a:p'] || [];
+        const paragraphArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
+
+        for (const paragraph of paragraphArray) {
+          const runs = paragraph?.['a:r'] || [];
+          const runArray = Array.isArray(runs) ? runs : [runs];
+
+          for (const run of runArray) {
+            const runText = run?.['a:t']?.[0];
+            if (runText) {
+              textParts.push(String(runText));
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.warn(`Failed to parse PPTX slides: ${filePath}`, error);
+  }
+
+  const text = textParts.join(' ').trim();
+
+  if (!text) {
+    return null;
+  }
+
+  return new Document({
+    text,
+    metadata: {
+      source: path.basename(filePath),
+      type: 'pptx',
     },
   });
 }
@@ -141,8 +206,10 @@ async function loadDocumentFile(fileInfo) {
   try {
     if (fileInfo.type === 'pdf') {
       return await loadPdfAsDocument(fileInfo.path);
+    } else if (fileInfo.type === 'odp') {
+      return await loadOdpAsDocument(fileInfo.path);
     } else if (fileInfo.type === 'pptx') {
-      return await loadPowerPointAsDocument(fileInfo.path);
+      return await loadPptxAsDocument(fileInfo.path);
     }
   } catch (error) {
     console.warn(`Skipping unreadable file: ${fileInfo.name}`, error);
@@ -267,11 +334,11 @@ function sanitizeBrowserId(browserId) {
 async function getUserDocumentFiles(userDir) {
   const entries = await fs.readdir(userDir, { withFileTypes: true }).catch(() => []);
   return entries
-    .filter((e) => e.isFile() && /\.(pdf|pptx?)$/i.test(e.name))
+    .filter((e) => e.isFile() && /\.(pdf|pptx?|odp)$/i.test(e.name))
     .map((e) => ({
       path: path.join(userDir, e.name),
       name: e.name,
-      type: /\.pdf$/i.test(e.name) ? 'pdf' : 'pptx',
+      type: /\.pdf$/i.test(e.name) ? 'pdf' : /\.odp$/i.test(e.name) ? 'odp' : 'pptx',
     }));
 }
 
@@ -368,7 +435,8 @@ export async function retrieveRagContextForUser(query, browserId) {
   return retrieveRagContext(query);
 }
 
-export async function retrieveRagContext(query) {  if (!query || typeof query !== 'string') {
+export async function retrieveRagContext(query) {
+  if (!query || typeof query !== 'string') {
     return { context: '', sources: [], used: false };
   }
 

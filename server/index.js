@@ -122,8 +122,14 @@ async function firstAvailableCommand(commands, args) {
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ charset: 'utf-8' }));
+app.use(express.text({ charset: 'utf-8' }));
+app.use((req, res, next) => {
+  res.set('Content-Type', 'application/json; charset=utf-8');
+  next();
+});
 app.use(express.static(path.join(__dirname, '../public')));
+
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'snowfox-session-secret-change-in-prod',

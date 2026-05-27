@@ -68,7 +68,10 @@ function extensionOf(fileName) {
 }
 
 function toSafeStoredName(fileName) {
-  return String(fileName || 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
+  return String(fileName || 'file')
+    .replace(/[\\/:\*\?"<>\|]/g, '_')
+    .replace(/^\s+|\s+$/g, '')
+    .slice(0, 255);
 }
 
 function runCommand(command, args) {

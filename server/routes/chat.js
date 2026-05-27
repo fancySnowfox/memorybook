@@ -238,6 +238,58 @@ async function extractPptxTextStats(filePath) {
   };
 }
 
+async function extractOdpTextStats(filePath) {
+  const fileBuffer = await fs.readFile(filePath);
+  const zip = await JSZip.loadAsync(fileBuffer);
+  const textParts = [];
+
+  try {
+    const contentXml = zip.file('content.xml');
+    if (contentXml) {
+      const xmlContent = await contentXml.async('string');
+      const parsed = await parseStringPromise(xmlContent);
+      const pages = parsed?.['office:document-content']?.['office:body']?.[0]?.['draw:page'] || [];
+      const pageArray = Array.isArray(pages) ? pages : [pages];
+
+      for (const page of pageArray) {
+        const frames = page?.['draw:frame'] || [];
+        const frameArray = Array.isArray(frames) ? frames : [frames];
+
+        for (const frame of frameArray) {
+          const textBoxes = frame?.['draw:text-box'] || [];
+          const textBoxArray = Array.isArray(textBoxes) ? textBoxes : [textBoxes];
+
+          for (const textBox of textBoxArray) {
+            const paragraphs = textBox?.['text:p'] || [];
+            const paragraphArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
+
+            for (const paragraph of paragraphArray) {
+              const runs = paragraph?.['text:span'] || [];
+              const runArray = Array.isArray(runs) ? runs : [runs];
+
+              for (const run of runArray) {
+                const runText = run?.['_'];
+                if (runText) {
+                  textParts.push(String(runText));
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore parsing errors and continue
+  }
+
+  const text = textParts.join(' ');
+  return {
+    words: countWords(text),
+    characters: text.length,
+    sourceType: 'odp',
+  };
+}
+
 async function extractPlainTextStats(filePath) {
   const stats = await fs.stat(filePath);
   if (stats.size > MAX_TEXT_READ_BYTES) {
@@ -302,7 +354,7 @@ async function getCurrentUserContentStatistics(browserId, options = {}) {
       stats.videoFiles += 1;
     }
 
-    if (['.pdf', '.ppt', '.pptx', '.doc', '.docx', '.xls', '.xlsx'].includes(ext)) {
+    if (['.pdf', '.ppt', '.pptx', '.odp', '.doc', '.docx', '.xls', '.xlsx'].includes(ext)) {
       stats.documentFiles += 1;
     }
 
@@ -310,7 +362,7 @@ async function getCurrentUserContentStatistics(browserId, options = {}) {
       continue;
     }
 
-    if (['.pdf', '.pptx', ...TEXT_READABLE_EXTENSIONS].includes(ext)) {
+    if (['.pdf', '.pptx', '.odp', ...TEXT_READABLE_EXTENSIONS].includes(ext)) {
       filesForTextStats.push({ path: fullPath, ext });
     }
   }
@@ -323,6 +375,8 @@ async function getCurrentUserContentStatistics(browserId, options = {}) {
           textStats = await extractPdfTextStats(file.path);
         } else if (file.ext === '.pptx') {
           textStats = await extractPptxTextStats(file.path);
+        } else if (file.ext === '.odp') {
+          textStats = await extractOdpTextStats(file.path);
         } else if (TEXT_READABLE_EXTENSIONS.has(file.ext)) {
           textStats = await extractPlainTextStats(file.path);
         }

@@ -15,7 +15,7 @@ import {
   downloadStoredConvertedVideo,
   deleteStoredConvertedVideo,
 } from './routes/video.js';
-import { uploadPdfMiddleware, handlePdfUpload, listFiles, serveFile, deleteFile } from './routes/files.js';
+import { uploadPdfMiddleware, handlePdfUpload, listFiles, serveFile, deleteFile, convertFileToPreviewPdf } from './routes/files.js';
 import { checkApiConnectivity } from './utils/health-check.js';
 import { getRagStatus, reindexRag } from './utils/rag-llamaindex.js';
 import { initFaqMatcher } from './utils/faq-matcher.js';
@@ -237,6 +237,7 @@ app.get('/api/files', listFiles);
 app.get('/api/files/:filename', serveFile);
 app.delete('/api/files/:filename', deleteFile);
 app.post('/api/files/:filename/delete', deleteFile);
+app.post('/api/files/:filename/preview-pdf', convertFileToPreviewPdf);
 
 // RAG endpoints
 app.get('/api/rag/status', (req, res) => {

@@ -3,10 +3,14 @@ const DEFAULT_TASK_ID = process.env.AI_TASK_ID || 'knowledge-base-customer-suppo
 const DEFAULT_GRADIENT_BASE_URL = 'https://inference.do-ai.run/v1';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { PDFParse } from 'pdf-parse';
+import JSZip from 'jszip';
+import { parseStringPromise } from 'xml2js';
 import { retrieveRagContext, retrieveRagContextForUser } from '../utils/rag-llamaindex.js';
 import { matchFaq } from '../utils/faq-matcher.js';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
+const CONVERTED_VIDEOS_DIR = path.join(UPLOADS_DIR, 'converted-videos');
 
 function sanitizeBrowserId(browserId) {
   return typeof browserId === 'string' ? browserId.replace(/[^a-zA-Z0-9_\-]/g, '') : '';
@@ -15,6 +19,9 @@ function sanitizeBrowserId(browserId) {
 
 
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v', '.wmv', '.flv']);
+const TEXT_READABLE_EXTENSIONS = new Set(['.txt', '.md', '.csv', '.json']);
+const MAX_CONTENT_STATS_FILES = 20;
+const MAX_TEXT_READ_BYTES = 5 * 1024 * 1024;
 
 async function getCurrentUserUploadCount(browserId, extensionFilter = null) {
   const safeId = sanitizeBrowserId(browserId);
@@ -31,6 +38,58 @@ async function getCurrentUserUploadCount(browserId, extensionFilter = null) {
   return { count, scoped: true };
 }
 
+async function getConvertedVideoCount(browserId) {
+  const safeId = sanitizeBrowserId(browserId);
+  if (!safeId) {
+    return 0;
+  }
+
+  const userConvertedDir = path.join(CONVERTED_VIDEOS_DIR, safeId);
+  const entries = await fs.readdir(userConvertedDir, { withFileTypes: true }).catch(() => []);
+  return entries.filter((entry) => entry.isFile() && /\.mp4$/i.test(entry.name)).length;
+}
+
+async function getCurrentUserLargestUploadFile(browserId) {
+  const safeId = sanitizeBrowserId(browserId);
+  if (!safeId) {
+    return { scoped: false };
+  }
+
+  const userDir = path.join(UPLOADS_DIR, safeId);
+  const entries = await fs.readdir(userDir, { withFileTypes: true }).catch(() => []);
+  const files = entries.filter((entry) => entry.isFile());
+
+  let largest = null;
+  for (const file of files) {
+    const fullPath = path.join(userDir, file.name);
+    const stats = await fs.stat(fullPath).catch(() => null);
+    if (!stats || !stats.isFile()) {
+      continue;
+    }
+
+    if (!largest || stats.size > largest.size) {
+      largest = {
+        storedName: file.name,
+        size: stats.size,
+        uploadedAt: stats.mtime.toISOString(),
+      };
+    }
+  }
+
+  if (!largest) {
+    return { scoped: true, found: false };
+  }
+
+  const dashIdx = largest.storedName.indexOf('-');
+  const originalName = dashIdx !== -1 ? largest.storedName.slice(dashIdx + 1) : largest.storedName;
+  return {
+    scoped: true,
+    found: true,
+    ...largest,
+    originalName,
+  };
+}
+
 function buildUploadCountAnswer({ count, scoped }) {
   if (!scoped) {
     return 'I could not determine your current folder identity, so I cannot count your uploaded files right now.';
@@ -40,13 +99,312 @@ function buildUploadCountAnswer({ count, scoped }) {
   return `In your current Memorybook Creator folder, there are ${count} uploaded ${noun}.`;
 }
 
-function buildVideoUploadCountAnswer({ count, scoped }) {
+function buildVideoUploadCountAnswer({ count, scoped, convertedVideoCount = 0 }) {
   if (!scoped) {
     return 'I could not determine your current folder identity, so I cannot count your uploaded video files right now.';
   }
 
-  const noun = count === 1 ? 'video file' : 'video files';
-  return `In your current Memorybook Creator folder, there are ${count} uploaded ${noun}.`;
+  const personalNoun = count === 1 ? 'video file' : 'video files';
+  const convertedNoun = convertedVideoCount === 1 ? 'converted video' : 'converted videos';
+  const total = count + convertedVideoCount;
+  const totalNoun = total === 1 ? 'video file' : 'video files';
+  return `In your current Memorybook Creator folder, there are ${count} uploaded ${personalNoun}. In stored converted videos, there are ${convertedVideoCount} ${convertedNoun}. Total video files counted: ${total} ${totalNoun}.`;
+}
+
+function buildLargestUploadAnswer(result) {
+  if (!result?.scoped) {
+    return 'I could not determine your current folder identity, so I cannot check your largest uploaded file right now.';
+  }
+
+  if (!result.found) {
+    return 'I did not find any uploaded files in your current Memorybook Creator folder.';
+  }
+
+  return `Your largest uploaded file is ${result.originalName} (${formatBytes(result.size)}), uploaded at ${new Date(result.uploadedAt).toLocaleString()}.`;
+}
+
+function countWords(text) {
+  const normalized = String(text || '').trim();
+  if (!normalized) {
+    return 0;
+  }
+  return normalized.split(/\s+/).length;
+}
+
+function isContentStatisticsQuery(text) {
+  if (typeof text !== 'string') {
+    return false;
+  }
+
+  const normalized = text.toLowerCase();
+  const hasStatsKeyword = /(stat|stats|statistics|summary|breakdown|analy[sz]e|analysis)/.test(normalized);
+  const hasScopeKeyword = /(content|contents|document|documents|file|files|upload|uploads|vault|folder|word|text|character)/.test(normalized);
+  return hasStatsKeyword && hasScopeKeyword;
+}
+
+function isLargestUploadQuery(text) {
+  if (typeof text !== 'string') {
+    return false;
+  }
+
+  const normalized = text.toLowerCase();
+  const hasLargestKeyword = /(largest|biggest|max(imum)?\s+size|biggest\s+size)/.test(normalized);
+  const hasFileKeyword = /(file|files|upload|uploaded|uploads|vault|folder)/.test(normalized);
+  return hasLargestKeyword && hasFileKeyword;
+}
+
+function wantsTextStatistics(text) {
+  if (typeof text !== 'string') {
+    return false;
+  }
+
+  const normalized = text.toLowerCase();
+  return /(content|word|words|text|character|characters|read|inside)/.test(normalized);
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return '0 B';
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = bytes;
+  let index = 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
+  return `${value.toFixed(index === 0 ? 0 : 2)} ${units[index]}`;
+}
+
+async function extractPdfTextStats(filePath) {
+  const fileBuffer = await fs.readFile(filePath);
+  const parser = new PDFParse({ data: new Uint8Array(fileBuffer) });
+  try {
+    const parsed = await parser.getText();
+    const text = String(parsed?.text || '');
+    return {
+      words: countWords(text),
+      characters: text.length,
+      sourceType: 'pdf',
+    };
+  } finally {
+    await parser.destroy().catch(() => {});
+  }
+}
+
+async function extractPptxTextStats(filePath) {
+  const fileBuffer = await fs.readFile(filePath);
+  const zip = await JSZip.loadAsync(fileBuffer);
+  const textParts = [];
+
+  for (const [filename, file] of Object.entries(zip.files)) {
+    if (!/^ppt\/slides\/slide\d+\.xml$/.test(filename) || file.dir) {
+      continue;
+    }
+
+    try {
+      const xmlContent = await file.async('string');
+      const parsed = await parseStringPromise(xmlContent);
+      const slideShapes = parsed?.['p:sld']?.['p:cSld']?.[0]?.['p:spTree']?.[0]?.['p:sp'] || [];
+      const shapeArray = Array.isArray(slideShapes) ? slideShapes : [slideShapes];
+
+      for (const shape of shapeArray) {
+        const paragraphs = shape?.['p:txBody']?.[0]?.['a:p'] || [];
+        const paragraphArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
+
+        for (const paragraph of paragraphArray) {
+          const runs = paragraph?.['a:r'] || [];
+          const runArray = Array.isArray(runs) ? runs : [runs];
+
+          for (const run of runArray) {
+            const runText = run?.['a:t']?.[0];
+            if (runText) {
+              textParts.push(String(runText));
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore a malformed slide and keep processing remaining slides.
+    }
+  }
+
+  const text = textParts.join(' ');
+  return {
+    words: countWords(text),
+    characters: text.length,
+    sourceType: 'pptx',
+  };
+}
+
+async function extractPlainTextStats(filePath) {
+  const stats = await fs.stat(filePath);
+  if (stats.size > MAX_TEXT_READ_BYTES) {
+    return {
+      words: 0,
+      characters: 0,
+      sourceType: 'text',
+      skipped: true,
+      reason: `File too large for inline text stats (> ${formatBytes(MAX_TEXT_READ_BYTES)}).`,
+    };
+  }
+
+  const text = await fs.readFile(filePath, 'utf8');
+  return {
+    words: countWords(text),
+    characters: text.length,
+    sourceType: 'text',
+  };
+}
+
+async function getCurrentUserContentStatistics(browserId, options = {}) {
+  const safeId = sanitizeBrowserId(browserId);
+  if (!safeId) {
+    return { scoped: false };
+  }
+
+  const includeTextStats = Boolean(options.includeTextStats);
+  const userDir = path.join(UPLOADS_DIR, safeId);
+  const entries = await fs.readdir(userDir, { withFileTypes: true }).catch(() => []);
+  const files = entries.filter((entry) => entry.isFile());
+
+  const stats = {
+    scoped: true,
+    totalFiles: files.length,
+    totalBytes: 0,
+    videoFiles: 0,
+    documentFiles: 0,
+    extensionCounts: {},
+    textStats: {
+      processedFiles: 0,
+      skippedFiles: 0,
+      words: 0,
+      characters: 0,
+    },
+  };
+
+  const filesForTextStats = [];
+
+  for (const file of files) {
+    const fullPath = path.join(userDir, file.name);
+    const ext = path.extname(file.name).toLowerCase() || '(no-ext)';
+    stats.extensionCounts[ext] = (stats.extensionCounts[ext] || 0) + 1;
+
+    const fileInfo = await fs.stat(fullPath).catch(() => null);
+    if (!fileInfo || !fileInfo.isFile()) {
+      continue;
+    }
+
+    stats.totalBytes += fileInfo.size;
+
+    if (VIDEO_EXTENSIONS.has(ext)) {
+      stats.videoFiles += 1;
+    }
+
+    if (['.pdf', '.ppt', '.pptx', '.doc', '.docx', '.xls', '.xlsx'].includes(ext)) {
+      stats.documentFiles += 1;
+    }
+
+    if (!includeTextStats) {
+      continue;
+    }
+
+    if (['.pdf', '.pptx', ...TEXT_READABLE_EXTENSIONS].includes(ext)) {
+      filesForTextStats.push({ path: fullPath, ext });
+    }
+  }
+
+  if (includeTextStats) {
+    for (const file of filesForTextStats.slice(0, MAX_CONTENT_STATS_FILES)) {
+      try {
+        let textStats = null;
+        if (file.ext === '.pdf') {
+          textStats = await extractPdfTextStats(file.path);
+        } else if (file.ext === '.pptx') {
+          textStats = await extractPptxTextStats(file.path);
+        } else if (TEXT_READABLE_EXTENSIONS.has(file.ext)) {
+          textStats = await extractPlainTextStats(file.path);
+        }
+
+        if (!textStats) {
+          continue;
+        }
+
+        if (textStats.skipped) {
+          stats.textStats.skippedFiles += 1;
+          continue;
+        }
+
+        stats.textStats.processedFiles += 1;
+        stats.textStats.words += textStats.words;
+        stats.textStats.characters += textStats.characters;
+      } catch {
+        stats.textStats.skippedFiles += 1;
+      }
+    }
+  }
+
+  return stats;
+}
+
+function buildContentStatisticsAnswer(stats, includeTextStats) {
+  if (!stats?.scoped) {
+    return 'I could not determine your current folder identity, so I cannot compute your local upload statistics right now.';
+  }
+
+  const extensionSummary = Object.entries(stats.extensionCounts || {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([ext, count]) => `${ext}: ${count}`)
+    .join(', ');
+
+  let answer = `In your current Memorybook Creator folder: total files ${stats.totalFiles}, total size ${formatBytes(stats.totalBytes)}, video files ${stats.videoFiles}, document files ${stats.documentFiles}.`;
+
+  if (extensionSummary) {
+    answer += ` Top file types: ${extensionSummary}.`;
+  }
+
+  if (includeTextStats) {
+    answer += ` Content stats (processed ${stats.textStats.processedFiles} files): ${stats.textStats.words} words and ${stats.textStats.characters} characters.`;
+    if (stats.textStats.skippedFiles > 0) {
+      answer += ` Skipped ${stats.textStats.skippedFiles} files due to unsupported/large content parsing.`;
+    }
+  }
+
+  return answer;
+}
+
+function isVideoUploadCountQuery(text) {
+  if (typeof text !== 'string') {
+    return false;
+  }
+
+  const normalized = text.toLowerCase();
+  const hasVideoKeyword = /(video|videos|mov|mp4)/.test(normalized);
+  const hasCountKeyword = /(how many|count|number of|total)/.test(normalized);
+  const hasUploadContext = /(upload|uploaded|uploads|vault|folder|file|files)/.test(normalized);
+  return hasVideoKeyword && hasCountKeyword && hasUploadContext;
+}
+
+function buildMessagePreview(text, maxLength = 180) {
+  if (typeof text !== 'string') {
+    return '';
+  }
+
+  const collapsed = text.replace(/\s+/g, ' ').trim();
+  if (collapsed.length <= maxLength) {
+    return collapsed;
+  }
+  return `${collapsed.slice(0, maxLength)}...`;
+}
+
+function logFaqTrace(requestId, stage, details = {}) {
+  console.log('[chat][faq-trace]', {
+    requestId,
+    stage,
+    ...details,
+  });
 }
 
 
@@ -254,53 +612,164 @@ async function chat(req, res) {
     const latestUserMessage = [...messages].reverse().find((message) => message?.role === 'user')?.content;
     const browserId = req.headers['x-browser-id'] || req.body?.browserId || '';
     const chatScope = normalizeChatScope(req.body?.scope);
+    const queryPreview = buildMessagePreview(latestUserMessage);
+    const shouldCheckVideoCount = chatScope === 'app' && isVideoUploadCountQuery(latestUserMessage);
+    const shouldCheckLargestUpload = chatScope === 'app' && isLargestUploadQuery(latestUserMessage);
+    const shouldCheckContentStats = chatScope === 'app' && isContentStatisticsQuery(latestUserMessage);
+
+    logFaqTrace(requestId, 'routing-start', {
+      scope: chatScope,
+      queryPreview,
+      checkVideoCount: shouldCheckVideoCount,
+      checkLargestUpload: shouldCheckLargestUpload,
+      checkContentStats: shouldCheckContentStats,
+      browserId: sanitizeBrowserId(browserId) || 'missing',
+    });
+
+    // Route explicit video count questions first to avoid semantic FAQ ambiguity.
+    if (shouldCheckVideoCount) {
+      const uploadStats = await getCurrentUserUploadCount(browserId, VIDEO_EXTENSIONS);
+      const convertedVideoCount = await getConvertedVideoCount(browserId);
+      const localAnswer = buildVideoUploadCountAnswer({ ...uploadStats, convertedVideoCount });
+      logFaqTrace(requestId, 'resolved-direct-video-count', {
+        queryPreview,
+        scoped: uploadStats.scoped,
+        videoUploadCount: uploadStats.count,
+        convertedVideoCount,
+      });
+      console.log('[chat] locally answered direct video count query', {
+        requestId,
+        browserId: sanitizeBrowserId(browserId) || 'missing',
+        videoUploadCount: uploadStats.count,
+        convertedVideoCount,
+        scope: chatScope,
+      });
+
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.write(localAnswer);
+      res.end();
+      return;
+    }
+
+    if (shouldCheckLargestUpload) {
+      const largestUpload = await getCurrentUserLargestUploadFile(browserId);
+      const localAnswer = buildLargestUploadAnswer(largestUpload);
+      logFaqTrace(requestId, 'resolved-direct-largest-upload', {
+        queryPreview,
+        scoped: Boolean(largestUpload?.scoped),
+        found: Boolean(largestUpload?.found),
+        fileName: largestUpload?.originalName || null,
+        fileSize: largestUpload?.size || null,
+      });
+
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.write(localAnswer);
+      res.end();
+      return;
+    }
+
+    // Route content/statistics queries to local deterministic stats instead of semantic/model replies.
+    if (shouldCheckContentStats) {
+      const includeTextStats = wantsTextStatistics(latestUserMessage);
+      const stats = await getCurrentUserContentStatistics(browserId, { includeTextStats });
+      const localAnswer = buildContentStatisticsAnswer(stats, includeTextStats);
+      logFaqTrace(requestId, 'resolved-direct-content-stats', {
+        queryPreview,
+        includeTextStats,
+        totalFiles: stats?.totalFiles ?? null,
+        scoped: Boolean(stats?.scoped),
+      });
+      console.log('[chat] locally answered content statistics query', {
+        requestId,
+        browserId: sanitizeBrowserId(browserId) || 'missing',
+        scope: chatScope,
+        totalFiles: stats?.totalFiles ?? null,
+        includeTextStats,
+      });
+
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.write(localAnswer);
+      res.end();
+      return;
+    }
 
     // Route app/self FAQ questions locally before inference calls.
     if (chatScope === 'app' && latestUserMessage) {
-      const faqMatch = await matchFaq(latestUserMessage);
-      if (faqMatch) {
-        let localAnswer = '';
+      try {
+        const faqMatch = await matchFaq(latestUserMessage);
+        if (faqMatch) {
+          let localAnswer = '';
 
-        if (faqMatch.isDynamic && faqMatch.faqId === 'upload_count') {
-          const uploadStats = await getCurrentUserUploadCount(browserId);
-          localAnswer = buildUploadCountAnswer(uploadStats);
-          console.log('[chat] locally answered FAQ (semantic)', {
-            requestId,
+          if (faqMatch.isDynamic && faqMatch.faqId === 'upload_count') {
+            const uploadStats = await getCurrentUserUploadCount(browserId);
+            localAnswer = buildUploadCountAnswer(uploadStats);
+            console.log('[chat] locally answered FAQ (semantic)', {
+              requestId,
+              faqId: faqMatch.faqId,
+              score: faqMatch.score.toFixed(3),
+              browserId: sanitizeBrowserId(browserId) || 'missing',
+              uploadCount: uploadStats.count,
+              scope: chatScope,
+            });
+          } else if (faqMatch.isDynamic && faqMatch.faqId === 'video_upload_count') {
+            const uploadStats = await getCurrentUserUploadCount(browserId, VIDEO_EXTENSIONS);
+            const convertedVideoCount = await getConvertedVideoCount(browserId);
+            localAnswer = buildVideoUploadCountAnswer({ ...uploadStats, convertedVideoCount });
+            console.log('[chat] locally answered FAQ (semantic)', {
+              requestId,
+              faqId: faqMatch.faqId,
+              score: faqMatch.score.toFixed(3),
+              browserId: sanitizeBrowserId(browserId) || 'missing',
+              videoUploadCount: uploadStats.count,
+              convertedVideoCount,
+              scope: chatScope,
+            });
+          } else if (!faqMatch.isDynamic) {
+            localAnswer = faqMatch.answer;
+            console.log('[chat] locally answered FAQ (semantic)', {
+              requestId,
+              faqId: faqMatch.faqId,
+              score: faqMatch.score.toFixed(3),
+              scope: chatScope,
+            });
+          }
+
+          logFaqTrace(requestId, 'semantic-match', {
+            queryPreview,
             faqId: faqMatch.faqId,
-            score: faqMatch.score.toFixed(3),
-            browserId: sanitizeBrowserId(browserId) || 'missing',
-            uploadCount: uploadStats.count,
-            scope: chatScope,
+            score: Number(faqMatch.score.toFixed(3)),
+            isDynamic: faqMatch.isDynamic,
+            producedLocalAnswer: Boolean(localAnswer),
           });
-        } else if (faqMatch.isDynamic && faqMatch.faqId === 'video_upload_count') {
-          const uploadStats = await getCurrentUserUploadCount(browserId, VIDEO_EXTENSIONS);
-          localAnswer = buildVideoUploadCountAnswer(uploadStats);
-          console.log('[chat] locally answered FAQ (semantic)', {
-            requestId,
+
+          if (localAnswer) {
+            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+            res.write(localAnswer);
+            res.end();
+            return;
+          }
+
+          logFaqTrace(requestId, 'semantic-match-no-local-answer', {
+            queryPreview,
             faqId: faqMatch.faqId,
-            score: faqMatch.score.toFixed(3),
-            browserId: sanitizeBrowserId(browserId) || 'missing',
-            videoUploadCount: uploadStats.count,
-            scope: chatScope,
           });
-        } else if (!faqMatch.isDynamic) {
-          localAnswer = faqMatch.answer;
-          console.log('[chat] locally answered FAQ (semantic)', {
-            requestId,
-            faqId: faqMatch.faqId,
-            score: faqMatch.score.toFixed(3),
-            scope: chatScope,
+        } else {
+          logFaqTrace(requestId, 'semantic-no-match', {
+            queryPreview,
           });
         }
-
-        if (localAnswer) {
-          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-          res.write(localAnswer);
-          res.end();
-          return;
-        }
+      } catch (faqError) {
+        logFaqTrace(requestId, 'semantic-error', {
+          queryPreview,
+          message: faqError instanceof Error ? faqError.message : String(faqError),
+        });
       }
     }
+
+    logFaqTrace(requestId, 'fallback-to-rag-or-inference', {
+      queryPreview,
+      scope: chatScope,
+    });
 
     let messagesForModel = messages;
     let ragUsed = false;

@@ -6,6 +6,7 @@
   <title>Memorybook Creator - Memory organizer</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     #chatPanel { display: flex; }
@@ -30,6 +31,7 @@
     .chat-markdown pre { white-space: pre-wrap; word-break: break-word; overflow-x: auto; background: #f8fafc; border-radius: 0.5rem; padding: 0.75rem; }
     .chat-markdown code { overflow-wrap: anywhere; }
     .chat-markdown table { display: block; max-width: 100%; overflow-x: auto; }
+    #filePreviewModal.hidden { display: none; }
   </style>
 </head>
 <body class="bg-gray-50">
@@ -52,6 +54,19 @@
   <!-- Drawer Overlay -->
   <div id="drawerOverlay" class="fixed inset-0 bg-black/40 z-40"></div>
 
+  <div id="filePreviewModal" class="hidden fixed inset-0 z-[70] bg-black/60 p-4 sm:p-8">
+    <div class="mx-auto flex h-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+        <div>
+          <h3 id="filePreviewTitle" class="text-base font-semibold text-gray-900">File Preview</h3>
+          <p id="filePreviewMeta" class="text-xs text-gray-500"></p>
+        </div>
+        <button id="closeFilePreviewBtn" class="text-gray-500 hover:text-gray-700 focus:outline-none">Close</button>
+      </div>
+      <div id="filePreviewBody" class="min-h-0 flex-1 overflow-auto bg-gray-50 p-4"></div>
+    </div>
+  </div>
+
   <!-- Tools & Files Drawer -->
   <div id="toolsDrawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col overflow-y-auto">
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 sticky top-0 bg-white">
@@ -71,7 +86,7 @@
             Video Converter
           </button>
           <button id="tabPdfBtn" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none" data-tab="tabPdf">
-            PDF Upload
+            File Upload
           </button>
         </div>
 
@@ -113,7 +128,7 @@
           </form>
         </div>
 
-        <!-- Tab: PDF Upload -->
+        <!-- Tab: File Upload -->
         <div id="tabPdf" class="tab-panel hidden">
           <div class="flex flex-col items-center text-center mb-4">
             <div class="bg-red-100 rounded-full p-4 mb-4">
@@ -121,12 +136,12 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
             </div>
-            <p class="text-gray-600">Upload PDF files to the server file library.</p>
+            <p class="text-gray-600">Upload documents, text files, CSVs, and images. Files over 50MB auto-split for PDF, PPTX (slide-based), and text-like formats when possible.</p>
           </div>
           <form id="pdfUploadForm" class="space-y-4">
             <div>
-              <label for="pdfFile" class="block text-sm font-medium text-gray-700 mb-2">Select PDF, DOCX, PPTX, or XLSX file(s)</label>
-              <input id="pdfFile" name="file" type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:border-0 file:rounded-md file:bg-red-50 file:text-red-700 hover:file:bg-red-100" required>
+              <label for="pdfFile" class="block text-sm font-medium text-gray-700 mb-2">Select PDF, DOCX, PPTX, XLSX, CSV, TXT, RTF, or image file(s)</label>
+              <input id="pdfFile" name="file" type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.rtf,.png,.jpg,.jpeg,.gif,.webp,text/csv,text/plain,application/rtf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/png,image/jpeg,image/gif,image/webp" class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:border-0 file:rounded-md file:bg-red-50 file:text-red-700 hover:file:bg-red-100" required>
             </div>
             <button id="pdfUploadBtn" type="submit" class="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white font-medium py-2.5 px-4 rounded-md transition-colors">
               Upload File
@@ -224,6 +239,10 @@
     // Drawer toggle
     const toolsDrawer = document.getElementById('toolsDrawer');
     const drawerOverlay = document.getElementById('drawerOverlay');
+    const filePreviewModal = document.getElementById('filePreviewModal');
+    const filePreviewBody = document.getElementById('filePreviewBody');
+    const filePreviewTitle = document.getElementById('filePreviewTitle');
+    const filePreviewMeta = document.getElementById('filePreviewMeta');
 
     document.getElementById('openToolsBtn').addEventListener('click', () => {
       toolsDrawer.classList.add('open');
@@ -237,8 +256,144 @@
       drawerOverlay.classList.remove('open');
     }
 
+    function getFileExtension(fileName) {
+      const match = String(fileName || '').toLowerCase().match(/\.([^.]+)$/);
+      return match ? `.${match[1]}` : '';
+    }
+
+    function filePreviewUrl(fileName) {
+      return `/api/files/${encodeURIComponent(fileName)}?bid=${encodeURIComponent(getBrowserOwnerId())}&preview=1`;
+    }
+
+    function closeFilePreview() {
+      filePreviewModal.classList.add('hidden');
+      filePreviewBody.innerHTML = '';
+      filePreviewTitle.textContent = 'File Preview';
+      filePreviewMeta.textContent = '';
+    }
+
+    async function openFilePreview(file) {
+      const ext = getFileExtension(file.originalName || file.name);
+      const previewUrl = filePreviewUrl(file.name);
+      const supportedTextTypes = new Set(['.txt', '.csv', '.json', '.md', '.rtf']);
+      const supportedImageTypes = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
+      const supportedVideoTypes = new Set(['.mp4', '.mov', '.webm']);
+
+      filePreviewTitle.textContent = file.originalName || file.name;
+      filePreviewMeta.textContent = `${(Number(file.size) / (1024 * 1024)).toFixed(2)} MB`;
+      filePreviewBody.innerHTML = '<p class="text-sm text-gray-500">Loading preview…</p>';
+      filePreviewModal.classList.remove('hidden');
+
+      if (ext === '.pdf') {
+        filePreviewBody.innerHTML = `<iframe src="${previewUrl}" class="h-full min-h-[70vh] w-full rounded-lg border border-gray-200 bg-white"></iframe>`;
+        return;
+      }
+
+      if (supportedImageTypes.has(ext)) {
+        filePreviewBody.innerHTML = `<div class="flex min-h-[70vh] items-center justify-center"><img src="${previewUrl}" alt="${escapeHtml(file.originalName || file.name)}" class="max-h-[70vh] max-w-full rounded-lg border border-gray-200 bg-white object-contain"></div>`;
+        return;
+      }
+
+      if (supportedVideoTypes.has(ext)) {
+        filePreviewBody.innerHTML = `<div class="flex min-h-[70vh] items-center justify-center"><video controls class="max-h-[70vh] max-w-full rounded-lg bg-black"><source src="${previewUrl}"></video></div>`;
+        return;
+      }
+
+      if (supportedTextTypes.has(ext)) {
+        try {
+          const response = await fetch(previewUrl, { headers: fileApiHeaders() });
+          const text = await response.text();
+          if (!response.ok) {
+            throw new Error(text || 'Failed to load preview.');
+          }
+
+          if (ext === '.csv') {
+            const rows = text.split(/\r?\n/).filter(Boolean).slice(0, 200).map((line) => line.split(','));
+            const header = rows[0] || [];
+            const bodyRows = rows.slice(1);
+            const table = document.createElement('table');
+            table.className = 'min-w-full border-collapse bg-white text-sm';
+            table.innerHTML = `
+              <thead><tr>${header.map((cell) => `<th class="border border-gray-200 bg-gray-100 px-3 py-2 text-left font-medium">${escapeHtml(cell)}</th>`).join('')}</tr></thead>
+              <tbody>${bodyRows.map((row) => `<tr>${row.map((cell) => `<td class="border border-gray-200 px-3 py-2 align-top">${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
+            `;
+            filePreviewBody.innerHTML = '';
+            filePreviewBody.appendChild(table);
+          } else {
+            filePreviewBody.innerHTML = `<pre class="whitespace-pre-wrap rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-800">${escapeHtml(text)}</pre>`;
+          }
+        } catch (error) {
+          filePreviewBody.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(error instanceof Error ? error.message : 'Failed to load preview.')}</p>`;
+        }
+        return;
+      }
+
+      if (ext === '.pptx') {
+        filePreviewBody.innerHTML = `
+          <div class="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-700">
+            <p class="mb-3">PPTX cannot be previewed directly in this browser.</p>
+            <div class="flex items-center gap-3">
+              <button id="convertPptxPreviewBtn" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700">Convert to PDF & Preview</button>
+              <a href="/api/files/${encodeURIComponent(file.name)}?bid=${encodeURIComponent(getBrowserOwnerId())}" class="text-blue-600 hover:text-blue-800" download>Download original</a>
+            </div>
+            <p class="mt-3 text-xs text-gray-500">Requires LibreOffice on the server.</p>
+          </div>
+        `;
+
+        const convertBtn = document.getElementById('convertPptxPreviewBtn');
+        if (convertBtn) {
+          convertBtn.addEventListener('click', async () => {
+            convertBtn.disabled = true;
+            convertBtn.textContent = 'Converting…';
+            try {
+              const response = await fetch(`/api/files/${encodeURIComponent(file.name)}/preview-pdf`, {
+                method: 'POST',
+                headers: fileApiHeaders(),
+              });
+              const { raw, json } = await readApiResponse(response);
+              if (!response.ok) {
+                let message = 'Failed to convert PPTX for preview.';
+                if (json?.message) {
+                  message = json.message;
+                } else if (raw && raw.trim()) {
+                  message = raw.trim().slice(0, 240);
+                }
+                throw new Error(message);
+              }
+
+              const pdfName = json?.file?.name;
+              if (!pdfName) {
+                throw new Error('Conversion finished but no preview PDF was returned.');
+              }
+
+              const pdfPreviewUrl = filePreviewUrl(pdfName);
+              filePreviewTitle.textContent = json?.file?.originalName || pdfName;
+              filePreviewMeta.textContent = `${(Number(json?.file?.size || 0) / (1024 * 1024)).toFixed(2)} MB · converted from PPTX`;
+              filePreviewBody.innerHTML = `<iframe src="${pdfPreviewUrl}" class="h-full min-h-[70vh] w-full rounded-lg border border-gray-200 bg-white"></iframe>`;
+            } catch (error) {
+              filePreviewBody.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(error instanceof Error ? error.message : 'Failed to convert PPTX for preview.')}</p>`;
+            }
+          });
+        }
+        return;
+      }
+
+      filePreviewBody.innerHTML = `
+        <div class="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600">
+          <p class="mb-3">Preview is not available for this file type in the browser.</p>
+          <a href="/api/files/${encodeURIComponent(file.name)}?bid=${encodeURIComponent(getBrowserOwnerId())}" class="text-blue-600 hover:text-blue-800" download>Download file</a>
+        </div>
+      `;
+    }
+
     document.getElementById('closeToolsBtn').addEventListener('click', closeDrawer);
     drawerOverlay.addEventListener('click', closeDrawer);
+    document.getElementById('closeFilePreviewBtn').addEventListener('click', closeFilePreview);
+    filePreviewModal.addEventListener('click', (event) => {
+      if (event.target === filePreviewModal) {
+        closeFilePreview();
+      }
+    });
 
     // Chat messaging
     let conversationHistory = [];
@@ -269,6 +424,89 @@
       label.textContent = appActive
         ? 'Mode: App context (local Memorybook data first)'
         : 'Mode: General AI (broader knowledge, no local file routing)';
+    }
+
+    function exportAssistantMessageToPdf(content, pageFormat = 'a4') {
+      const text = String(content || '').trim();
+      if (!text) {
+        alert('Nothing to export for this answer.');
+        return;
+      }
+
+      if (!window.jspdf?.jsPDF) {
+        alert('PDF export library failed to load. Please refresh and try again.');
+        return;
+      }
+
+      const normalizedFormat = String(pageFormat || 'a4').toLowerCase() === 'letter' ? 'letter' : 'a4';
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: 'pt', format: normalizedFormat });
+      const marginX = 48;
+      const marginY = 52;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const textWidth = pageWidth - (marginX * 2);
+      let y = marginY;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text('Memorybook Creator Chat Export', marginX, y);
+      y += 20;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(`Exported: ${new Date().toLocaleString()}`, marginX, y);
+      y += 18;
+
+      const lines = doc.splitTextToSize(text, textWidth);
+      doc.setFontSize(11);
+      const lineHeight = 15;
+
+      for (const line of lines) {
+        if (y > pageHeight - marginY) {
+          doc.addPage();
+          y = marginY;
+        }
+        doc.text(line, marginX, y);
+        y += lineHeight;
+      }
+
+      const fileName = `memorybook-answer-${normalizedFormat}-${new Date().toISOString().replace(/[:.]/g, '-')}.pdf`;
+      doc.save(fileName);
+    }
+
+    function renderAssistantMessage(msgEl, content) {
+      msgEl.classList.add('chat-markdown');
+      msgEl.innerHTML = markdownRenderer.render(content);
+
+      const actionsEl = document.createElement('div');
+      actionsEl.className = 'mt-3 pt-2 border-t border-green-200/70 flex items-center justify-end gap-2';
+
+      const formatLabel = document.createElement('label');
+      formatLabel.className = 'text-xs text-green-800';
+      formatLabel.textContent = 'Format';
+
+      const formatSelect = document.createElement('select');
+      formatSelect.className = 'text-xs rounded border border-green-300 bg-white px-2 py-1 text-green-800';
+      formatSelect.innerHTML = `
+        <option value="a4">A4</option>
+        <option value="letter">Letter</option>
+      `;
+
+      const exportBtn = document.createElement('button');
+      exportBtn.type = 'button';
+      exportBtn.className = 'text-xs font-medium text-green-700 hover:text-green-900';
+      exportBtn.textContent = 'Export PDF';
+      exportBtn.addEventListener('click', () => {
+        exportAssistantMessageToPdf(content, formatSelect.value);
+      });
+
+      actionsEl.appendChild(formatLabel);
+      actionsEl.appendChild(formatSelect);
+      actionsEl.appendChild(exportBtn);
+      msgEl.appendChild(actionsEl);
+      msgEl.dataset.rawContent = content;
     }
 
     document.querySelectorAll('.chat-scope-btn').forEach((btn) => {
@@ -332,7 +570,7 @@
                   if (!messageEl) {
                     messageEl = addChatMessage('', 'assistant');
                   }
-                  messageEl.textContent = assistantMessage;
+                  renderAssistantMessage(messageEl, assistantMessage);
                   document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
                 }
               } catch (e) { /* ignore malformed stream chunks */ }
@@ -359,8 +597,7 @@
       const bgClass = role === 'user' ? 'bg-blue-100 text-blue-900 ml-auto' : role === 'error' ? 'bg-red-100 text-red-900' : 'bg-green-100 text-green-900';
       msgEl.className = `chat-message p-4 rounded-lg break-words ${bgClass}`;
       if (role === 'assistant') {
-        msgEl.classList.add('chat-markdown');
-        msgEl.innerHTML = markdownRenderer.render(content);
+        renderAssistantMessage(msgEl, content);
       } else {
         msgEl.textContent = content;
       }
@@ -507,6 +744,7 @@
           }
 
           xhr.open('POST', '/api/video/convert', true);
+          xhr.setRequestHeader('X-Browser-Id', getBrowserOwnerId());
           xhr.responseType = 'blob';
 
           xhr.upload.addEventListener('progress', (event) => {
@@ -686,7 +924,7 @@
       });
     })();
 
-    // ── PDF upload ─────────────────────────────────────────────────────────────
+    // ── File upload ────────────────────────────────────────────────────────────
     (function () {
       const form = document.getElementById('pdfUploadForm');
       const fileInput = document.getElementById('pdfFile');
@@ -710,7 +948,9 @@
 
         try {
           let uploadedCount = 0;
+          let createdFileCount = 0;
           const failed = [];
+          const splitMessages = [];
 
           for (let index = 0; index < files.length; index += 1) {
             const file = files[index];
@@ -739,20 +979,30 @@
               continue;
             }
 
-            if (!json || !json.file) {
+            if (!json || (!json.file && !Array.isArray(json.files))) {
               failed.push(`${file.name}: Upload succeeded but response was not valid JSON.`);
               continue;
             }
 
             uploadedCount += 1;
+            if (Array.isArray(json.files) && json.files.length > 0) {
+              createdFileCount += json.files.length;
+              if (json.split) {
+                splitMessages.push(`${file.name} split into ${json.files.length} parts`);
+              }
+            } else if (json.file) {
+              createdFileCount += 1;
+            }
           }
 
           if (failed.length > 0) {
             const preview = failed.slice(0, 2).join(' | ');
             const extra = failed.length > 2 ? ` (+${failed.length - 2} more)` : '';
-            setStatus(`Uploaded ${uploadedCount}/${files.length}. Failed ${failed.length}. ${preview}${extra}`, true);
+            const splitText = splitMessages.length > 0 ? ` Split: ${splitMessages.slice(0, 2).join(' | ')}${splitMessages.length > 2 ? ` (+${splitMessages.length - 2} more)` : ''}` : '';
+            setStatus(`Uploaded ${uploadedCount}/${files.length}. Created ${createdFileCount} stored file(s). Failed ${failed.length}. ${preview}${extra}${splitText}`, true);
           } else {
-            setStatus(`Uploaded ${uploadedCount}/${files.length} file(s).`, false);
+            const splitText = splitMessages.length > 0 ? ` ${splitMessages.join(' | ')}.` : '';
+            setStatus(`Uploaded ${uploadedCount}/${files.length} file(s). Created ${createdFileCount} stored file(s).${splitText}`, false);
           }
 
           form.reset();
@@ -831,11 +1081,23 @@
             <td class="py-3 pr-4 text-gray-500">${sizeMb} MB</td>
             <td class="py-3 pr-4 text-gray-500">${escapeHtml(date)}</td>
             <td class="py-3 text-right space-x-3">
+              <button class="text-slate-600 hover:text-slate-800 preview-btn" data-name="${escapeHtml(file.name)}">Preview</button>
               <a href="/api/files/${encodeURIComponent(file.name)}?bid=${encodeURIComponent(getBrowserOwnerId())}" class="text-blue-600 hover:text-blue-800" download>Download</a>
               <button class="text-red-500 hover:text-red-700 delete-btn" data-name="${escapeHtml(file.name)}">Delete</button>
             </td>
           `;
           tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.preview-btn').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const file = files.find((entry) => entry.name === btn.dataset.name);
+            if (!file) {
+              alert('File metadata not found. Please refresh and try again.');
+              return;
+            }
+            await openFilePreview(file);
+          });
         });
 
         tbody.querySelectorAll('.delete-btn').forEach((btn) => {
@@ -876,7 +1138,9 @@
       listEl.innerHTML = '<p class="text-gray-400 text-sm text-center py-8">Loading…</p>';
 
       try {
-        const response = await fetch('/api/video/stored');
+        const response = await fetch('/api/video/stored', {
+          headers: fileApiHeaders(),
+        });
         const { raw, json } = await readApiResponse(response);
         if (!response.ok) {
           let message = 'Failed to load converted videos.';
@@ -928,7 +1192,7 @@
             <td class="py-3 pr-4 text-gray-500">${sizeMb} MB</td>
             <td class="py-3 pr-4 text-gray-500">${escapeHtml(date)}</td>
             <td class="py-3 text-right space-x-3">
-              <a href="/api/video/stored/${encodeURIComponent(file.name)}" class="text-blue-600 hover:text-blue-800" download>Download</a>
+              <a href="/api/video/stored/${encodeURIComponent(file.name)}?bid=${encodeURIComponent(getBrowserOwnerId())}" class="text-blue-600 hover:text-blue-800" download>Download</a>
               <button class="text-red-500 hover:text-red-700 stored-delete-btn" data-name="${escapeHtml(file.name)}">Delete</button>
             </td>
           `;
@@ -941,6 +1205,7 @@
             try {
               const res = await fetch(`/api/video/stored/${encodeURIComponent(btn.dataset.name)}/delete`, {
                 method: 'POST',
+                headers: fileApiHeaders(),
               });
               const { raw, json } = await readApiResponse(res);
               if (!res.ok) {

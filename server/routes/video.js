@@ -18,6 +18,22 @@ const KEEP_UPLOADED_SOURCE = ['1', 'true', 'yes', 'on'].includes(String(process.
 const uploadDir = path.join(os.tmpdir(), 'snowfox-video-uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
 
+function normalizeOwnerId(rawId) {
+  const safeId = String(rawId || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
+  return safeId || 'anonymous';
+}
+
+function ownerId(req) {
+  const headerId = req.get?.('X-Browser-Id');
+  const queryId = req.query?.bid;
+  const bodyId = req.body?.browserId;
+  return normalizeOwnerId(headerId || queryId || bodyId);
+}
+
+function userConvertedDir(req) {
+  return path.join(persistentConvertedDir, ownerId(req));
+}
+
 function resolveFormidableFactory() {
   if (typeof formidable === 'function') {
     return formidable;
@@ -461,9 +477,10 @@ async function convertMovToMp4(req, res) {
     let storedFilePath = null;
 
     if (storePermanently) {
-      await fs.promises.mkdir(persistentConvertedDir, { recursive: true });
+      const targetDir = userConvertedDir(req);
+      await fs.promises.mkdir(targetDir, { recursive: true });
       const storedFileName = createStoredFileName(originalName);
-      storedFilePath = path.join(persistentConvertedDir, storedFileName);
+      storedFilePath = path.join(targetDir, storedFileName);
       await fs.promises.copyFile(outputPath, storedFilePath);
       res.setHeader('X-Stored-File', storedFileName);
     }
@@ -550,8 +567,9 @@ function getVideoConvertProgress(req, res) {
 
 async function listStoredConvertedVideos(req, res) {
   try {
-    await fs.promises.mkdir(persistentConvertedDir, { recursive: true });
-    const entries = await fs.promises.readdir(persistentConvertedDir, { withFileTypes: true });
+    const targetDir = userConvertedDir(req);
+    await fs.promises.mkdir(targetDir, { recursive: true });
+    const entries = await fs.promises.readdir(targetDir, { withFileTypes: true });
 
     const files = [];
     for (const entry of entries) {
@@ -563,7 +581,7 @@ async function listStoredConvertedVideos(req, res) {
         continue;
       }
 
-      const fullPath = path.join(persistentConvertedDir, entry.name);
+      const fullPath = path.join(targetDir, entry.name);
       const stats = await fs.promises.stat(fullPath);
       files.push({
         name: entry.name,
@@ -596,7 +614,7 @@ async function downloadStoredConvertedVideo(req, res) {
       return;
     }
 
-    const fullPath = path.join(persistentConvertedDir, safeName);
+    const fullPath = path.join(userConvertedDir(req), safeName);
     await fs.promises.access(fullPath, fs.constants.R_OK);
     res.download(fullPath, safeName);
   } catch (error) {
@@ -626,7 +644,7 @@ async function deleteStoredConvertedVideo(req, res) {
       return;
     }
 
-    const fullPath = path.join(persistentConvertedDir, safeName);
+    const fullPath = path.join(userConvertedDir(req), safeName);
     await fs.promises.unlink(fullPath);
     res.json({ status: 'success', message: 'Stored converted video deleted.' });
   } catch (error) {

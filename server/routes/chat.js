@@ -775,34 +775,38 @@ async function chat(req, res) {
     let ragUsed = false;
     let ragSources = [];
 
-    if (chatScope === 'app' && typeof latestUserMessage === 'string' && latestUserMessage.trim().length > 0) {
-      try {
-        const rag = browserId
-          ? await retrieveRagContextForUser(latestUserMessage, browserId)
-          : await retrieveRagContext(latestUserMessage);
-        if (rag.used && rag.context) {
-          const ragSystemMessage = {
-            role: 'system',
-            content: `Use the retrieved local PDF context when relevant. If context is insufficient, say so and continue with best effort.\n\nRetrieved context:\n${rag.context}`,
-          };
+    // Only retrieve RAG for app scope, never for general/cloud scope
+    if (chatScope === 'app') {
+      if (typeof latestUserMessage === 'string' && latestUserMessage.trim().length > 0) {
+        try {
+          const rag = browserId
+            ? await retrieveRagContextForUser(latestUserMessage, browserId)
+            : await retrieveRagContext(latestUserMessage);
+          if (rag.used && rag.context) {
+            const ragSystemMessage = {
+              role: 'system',
+              content: `Use the retrieved local PDF context when relevant. If context is insufficient, say so and continue with best effort.\n\nRetrieved context:\n${rag.context}`,
+            };
 
-          messagesForModel = [ragSystemMessage, ...messages];
-          ragUsed = true;
-          ragSources = rag.sources;
-          console.log('RAG context attached:', { sourceCount: rag.sources.length, sources: rag.sources });
-          console.log('RAG attached text chunk:', {
-            requestId,
-            characterCount: rag.context.length,
-            text: rag.context,
-          });
-        } else {
-          console.log('[chat] RAG not used', { requestId });
+            messagesForModel = [ragSystemMessage, ...messages];
+            ragUsed = true;
+            ragSources = rag.sources;
+            console.log('RAG context attached:', { sourceCount: rag.sources.length, sources: rag.sources });
+            console.log('RAG attached text chunk:', {
+              requestId,
+              characterCount: rag.context.length,
+              text: rag.context,
+            });
+          } else {
+            console.log('[chat] RAG not used', { requestId });
+          }
+        } catch (ragError) {
+          console.warn('RAG retrieval failed, continuing without RAG:', ragError);
         }
-      } catch (ragError) {
-        console.warn('RAG retrieval failed, continuing without RAG:', ragError);
       }
-    } else if (chatScope === 'general') {
-      console.log('[chat] general scope selected; skipping local app routing and RAG', { requestId });
+    } else {
+      // General/cloud scope: never use RAG
+      console.log('[chat] general scope selected; skipping RAG entirely', { requestId });
     }
 
     console.log('Chat request:', {

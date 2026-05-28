@@ -130,7 +130,6 @@ app.use((req, res, next) => {
 });
 app.use(express.static(path.join(__dirname, '../public')));
 
-
 app.use(session({
   secret: process.env.SESSION_SECRET || 'snowfox-session-secret-change-in-prod',
   resave: false,

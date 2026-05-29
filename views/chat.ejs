@@ -149,6 +149,16 @@
       document.getElementById('statusContainer').classList.add('hidden');
     }
 
+    async function readApiResponse(response) {
+      const rawBody = await response.text();
+      const contentType = response.headers.get('content-type') || '';
+
+      return {
+        rawBody,
+        contentType,
+      };
+    }
+
     async function sendMessage() {
       const input = document.getElementById('messageInput');
       const message = input.value.trim();
@@ -210,28 +220,15 @@
         });
 
         if (!response.ok) {
-          const contentType = response.headers.get('content-type') || '';
           let error = 'Request failed';
-          let errorData = null;
-          const rawBody = await response.text();
-
-          if (contentType.includes('application/json')) {
-            try {
-              errorData = JSON.parse(rawBody);
-              error = errorData.details || errorData.error || `HTTP ${response.status}: ${response.statusText}`;
-            } catch (parseErr) {
-              error = rawBody || `HTTP ${response.status}: ${response.statusText}`;
-            }
-          } else {
-            error = rawBody || `HTTP ${response.status}: ${response.statusText}`;
-          }
+          const { rawBody, contentType } = await readApiResponse(response);
+          error = rawBody || `HTTP ${response.status}: ${response.statusText}`;
 
           console.error('[chat-ui] Non-OK response body', {
             requestId,
             status: response.status,
             statusText: response.statusText,
             contentType,
-            errorData,
             rawBody,
           });
           

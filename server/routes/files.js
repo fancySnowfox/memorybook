@@ -55,12 +55,36 @@ function normalizeOwnerId(rawId) {
   return safeId || 'anonymous';
 }
 
-// Prefer a persistent browser ID from UI, then fall back to express-session.
+function getCookieValue(req, name) {
+  const cookieHeader = req.get('cookie') || '';
+  if (!cookieHeader) {
+    return '';
+  }
+
+  const cookies = cookieHeader.split(';');
+  for (const rawCookie of cookies) {
+    const [rawName, ...rawValueParts] = rawCookie.split('=');
+    if (String(rawName || '').trim() !== name) {
+      continue;
+    }
+
+    const rawValue = rawValueParts.join('=').trim();
+    try {
+      return decodeURIComponent(rawValue);
+    } catch {
+      return rawValue;
+    }
+  }
+
+  return '';
+}
+
 function ownerId(req) {
   const headerId = req.get('X-Browser-Id');
   const queryId = req.query?.bid;
+  const cookieId = getCookieValue(req, 'snowfoxBrowserOwnerId');
   const sessionId = req.session?.id;
-  return normalizeOwnerId(headerId || queryId || sessionId);
+  return normalizeOwnerId(headerId || queryId || cookieId || sessionId);
 }
 
 function extensionOf(fileName) {

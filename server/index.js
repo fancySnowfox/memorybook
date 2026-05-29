@@ -124,8 +124,11 @@ async function firstAvailableCommand(commands, args) {
 app.use(cors());
 app.use(express.json({ charset: 'utf-8' }));
 app.use(express.text({ charset: 'utf-8' }));
-app.use((req, res, next) => {
-  res.set('Content-Type', 'application/json; charset=utf-8');
+app.use('/api', (req, res, next) => {
+  // Default API responses to JSON, but do not override rendered HTML pages.
+  if (!res.get('Content-Type')) {
+    res.type('application/json; charset=utf-8');
+  }
   next();
 });
 app.use(express.static(path.join(__dirname, '../public')));
@@ -296,9 +299,8 @@ function startServer(port) {
 
   server.on('error', (error) => {
     if (error && error.code === 'EADDRINUSE') {
-      const nextPort = port + 1;
-      console.warn(`[startup] Port ${port} is in use. Retrying on ${nextPort}...`);
-      startServer(nextPort);
+      console.error(`[startup] Port ${port} is already in use. Set PORT to a free value and restart.`);
+      process.exit(1);
       return;
     }
 

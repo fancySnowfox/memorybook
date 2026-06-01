@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import formidable from 'formidable';
+import { resolveRequestOwnerId } from '../utils/owner-id.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
@@ -18,16 +19,8 @@ const KEEP_UPLOADED_SOURCE = ['1', 'true', 'yes', 'on'].includes(String(process.
 const uploadDir = path.join(os.tmpdir(), 'snowfox-video-uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
 
-function normalizeOwnerId(rawId) {
-  const safeId = String(rawId || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
-  return safeId || 'anonymous';
-}
-
 function ownerId(req) {
-  const headerId = req.get?.('X-Browser-Id');
-  const queryId = req.query?.bid;
-  const bodyId = req.body?.browserId;
-  return normalizeOwnerId(headerId || queryId || bodyId);
+  return resolveRequestOwnerId(req);
 }
 
 function userConvertedDir(req) {

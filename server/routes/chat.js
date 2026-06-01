@@ -8,6 +8,7 @@ import JSZip from 'jszip';
 import { parseStringPromise } from 'xml2js';
 import { retrieveRagContext, retrieveRagContextForUser } from '../utils/rag-llamaindex.js';
 import { matchFaq } from '../utils/faq-matcher.js';
+import { resolveRequestOwnerId } from '../utils/owner-id.js';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 const CONVERTED_VIDEOS_DIR = path.join(UPLOADS_DIR, 'converted-videos');
@@ -664,7 +665,7 @@ async function chat(req, res) {
     const maxTokens = parseInt(req.body?.maxTokens ?? 2000) || 2000;
 
     const latestUserMessage = [...messages].reverse().find((message) => message?.role === 'user')?.content;
-    const browserId = req.headers['x-browser-id'] || req.body?.browserId || '';
+    const browserId = resolveRequestOwnerId(req);
     const chatScope = normalizeChatScope(req.body?.scope);
     const queryPreview = buildMessagePreview(latestUserMessage);
     const shouldCheckVideoCount = chatScope === 'app' && isVideoUploadCountQuery(latestUserMessage);

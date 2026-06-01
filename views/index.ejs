@@ -40,6 +40,7 @@
     <a href="/" class="flex items-center gap-3 no-underline">
       <img src="/SnowfoxConsulting.png" alt="Memorybook Creator" width="48" height="48" class="w-12 h-12 object-contain">
       <span class="text-xl font-semibold">Memorybook Creator</span>
+      <span id="headerUsername" class="hidden rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium text-white"></span>
     </a>
     <nav class="flex items-center gap-4">
       <button id="openToolsBtn" class="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-medium px-4 py-2 rounded-md transition-colors text-sm">
@@ -206,6 +207,32 @@
     <div class="text-center py-8 bg-gray-50 border-b border-gray-200">
       <h1 class="text-4xl font-bold text-gray-900 mb-2">Memorybook Creator AI</h1>
       <p class="text-lg text-gray-600">Create and organize your memories with intelligent AI</p>
+    </div>
+    <div id="authPanel" class="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
+      <div class="mx-auto flex max-w-6xl flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p class="text-sm font-semibold text-gray-900">Account</p>
+          <p id="authStatusText" class="mt-1 text-sm text-gray-600">Checking login status…</p>
+          <p id="authHint" class="mt-1 text-xs text-gray-500">Sign in to keep uploads and indexing under your account across browsers.</p>
+        </div>
+        <div class="w-full max-w-2xl space-y-3">
+          <form id="authForm" class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]">
+            <input id="authUsername" type="text" autocomplete="username" placeholder="Username" class="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-blue-500 focus:outline-none">
+            <input id="authPassword" type="password" autocomplete="current-password" placeholder="Password" class="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-blue-500 focus:outline-none">
+            <button id="loginBtn" type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Login</button>
+            <button id="registerBtn" type="button" class="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100">Register</button>
+          </form>
+          <div id="authLoggedInActions" class="hidden flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <button id="logoutBtn" type="button" class="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Logout</button>
+            <form id="changePasswordForm" class="grid flex-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+              <input id="currentPassword" type="password" autocomplete="current-password" placeholder="Current password" class="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-blue-500 focus:outline-none">
+              <input id="nextPassword" type="password" autocomplete="new-password" placeholder="New password" class="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-blue-500 focus:outline-none">
+              <button id="changePasswordBtn" type="submit" class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">Change password</button>
+            </form>
+          </div>
+          <p id="authMessage" class="min-h-[1.25rem] text-sm text-gray-500"></p>
+        </div>
+      </div>
     </div>
     <!-- Split Layout -->
     <div class="flex flex-1 overflow-hidden">
@@ -513,6 +540,238 @@
       btn.addEventListener('click', () => setChatScope(btn.dataset.scope));
     });
 
+    function stripWrappingQuotes(value) {
+      const text = String(value || '').trim();
+      if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) {
+        return text.slice(1, -1).trim();
+      }
+      return text;
+    }
+
+    function parseRenameChatCommand(message) {
+      const text = String(message || '').trim();
+      const bulkNamedPatterns = [
+        /^rename\s+files?\s+(?:containing|with|that\s+contain)\s+(.+?)\s+to\s+(.+)$/i,
+        /^rename\s+.*files?.*upload\s+folder.*(?:containing|with)\s+(.+?)\s+to\s+(.+)$/i,
+        /^rename\s+some\s+files?.*(?:containing|with)\s+(.+?)\s+to\s+(.+)$/i,
+        /^\/rename-bulk\s+(.+?)\s*=>\s*(.+)$/i,
+      ];
+
+      for (const pattern of bulkNamedPatterns) {
+        const match = text.match(pattern);
+        if (!match) {
+          continue;
+        }
+
+        const containsText = stripWrappingQuotes(match[1]);
+        const renameBase = stripWrappingQuotes(match[2]);
+        if (!containsText || !renameBase) {
+          return null;
+        }
+
+        const isRandom = /^(random|randomgenerated|random\s*generated)$/i.test(renameBase);
+        return {
+          mode: 'bulk_contains',
+          containsText,
+          renameBase,
+          nameStyle: isRandom ? 'random' : 'named',
+        };
+      }
+
+      const randomPatterns = [
+        /^rename\s+files?\s+(?:containing|with|that\s+contain)\s+(.+?)\s+to\s+(?:random|randomgenerated|random\s*generated)$/i,
+        /^\/rename-random\s+(.+)$/i,
+      ];
+
+      for (const pattern of randomPatterns) {
+        const match = text.match(pattern);
+        if (!match) {
+          continue;
+        }
+
+        const containsText = stripWrappingQuotes(match[1]);
+        if (!containsText) {
+          return null;
+        }
+
+        return {
+          mode: 'bulk_contains',
+          containsText,
+          renameBase: 'random',
+          nameStyle: 'random',
+        };
+      }
+
+      const patterns = [
+        /^\/rename\s+(.+?)\s+to\s+(.+)$/i,
+        /^rename\s+(?:file\s+)?(.+?)\s+to\s+(.+)$/i,
+        /^rename\s+(?:file\s+)?(.+?)\s+as\s+(.+)$/i,
+        /^rename\s+(?:the\s+)?file\s+named\s+(.+?)\s+to\s+(.+)$/i,
+        /^\/rename\s+(.+?)\s*=>\s*(.+)$/i,
+      ];
+
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (!match) {
+          continue;
+        }
+
+        const oldName = stripWrappingQuotes(match[1]);
+        const newName = stripWrappingQuotes(match[2]);
+        if (!oldName || !newName) {
+          return null;
+        }
+
+        return {
+          mode: 'single',
+          oldName,
+          newName,
+        };
+      }
+
+      return null;
+    }
+
+    function isRenameIntentMessage(message) {
+      const text = String(message || '').toLowerCase();
+      if (!text) {
+        return false;
+      }
+
+      const hasRenameVerb = /\b(rename|renaming|rename)\b/.test(text);
+      const hasFileContext = /\b(file|files|upload|folder)\b/.test(text);
+      return hasRenameVerb && hasFileContext;
+    }
+
+    function randomFileToken() {
+      const partA = Date.now().toString(36);
+      const partB = Math.random().toString(36).slice(2, 8);
+      return `${partA}-${partB}`;
+    }
+
+    function sanitizeGeneratedBase(value) {
+      return String(value || '')
+        .replace(/[\\/:\*\?"<>\|]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 200);
+    }
+
+    function extensionFromName(fileName) {
+      const name = String(fileName || '');
+      const idx = name.lastIndexOf('.');
+      if (idx <= 0 || idx === name.length - 1) {
+        return '';
+      }
+      return name.slice(idx);
+    }
+
+    async function renameFileFromChat(command) {
+      const listResponse = await fetch('/api/files', {
+        headers: fileApiHeaders(),
+      });
+      const listPayload = await readApiResponse(listResponse);
+      if (!listResponse.ok || !listPayload.json) {
+        throw new Error('Could not load file list before renaming.');
+      }
+
+      const files = Array.isArray(listPayload.json.files) ? listPayload.json.files : [];
+
+      if (command.mode === 'bulk_contains') {
+        const target = String(command.containsText || '').toLowerCase();
+        const candidates = files.filter((file) => String(file.originalName || '').toLowerCase().includes(target));
+        if (candidates.length === 0) {
+          throw new Error(`No files found containing "${command.containsText}".`);
+        }
+
+        const generatedBase = sanitizeGeneratedBase(command.renameBase);
+        if (command.nameStyle !== 'random' && !generatedBase) {
+          throw new Error('Generated rename base is empty. Try a phrase like "family photo".');
+        }
+
+        const renamedPairs = [];
+        for (let index = 0; index < candidates.length; index += 1) {
+          const sourceFile = candidates[index];
+          const ext = extensionFromName(sourceFile.originalName || sourceFile.name);
+          const newName = command.nameStyle === 'random'
+            ? `random-${index + 1}-${randomFileToken()}${ext}`
+            : `${generatedBase}${candidates.length > 1 ? ` ${index + 1}` : ''}${ext}`;
+
+          const renameResponse = await fetch(`/api/files/${encodeURIComponent(sourceFile.name)}/rename`, {
+            method: 'POST',
+            headers: {
+              ...fileApiHeaders(),
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ newName }),
+          });
+
+          const renamePayload = await readApiResponse(renameResponse);
+          if (!renameResponse.ok) {
+            const msg = renamePayload.json?.message || renamePayload.raw || `Rename failed for ${sourceFile.originalName}.`;
+            throw new Error(String(msg).trim());
+          }
+
+          const renamed = renamePayload.json?.file;
+          renamedPairs.push({
+            from: sourceFile.originalName,
+            to: renamed?.originalName || newName,
+          });
+        }
+
+        await loadFiles();
+        const preview = renamedPairs.slice(0, 3).map((item) => `"${item.from}" -> "${item.to}"`).join('; ');
+        const extra = renamedPairs.length > 3 ? ` (+${renamedPairs.length - 3} more)` : '';
+        if (command.nameStyle === 'random') {
+          return `Renamed ${renamedPairs.length} file(s) with random names. ${preview}${extra}`;
+        }
+        return `Renamed ${renamedPairs.length} file(s) using "${generatedBase}" naming. ${preview}${extra}`;
+      }
+
+      const byOriginalExact = files.filter((file) => file.originalName === command.oldName);
+      const byStoredExact = files.filter((file) => file.name === command.oldName);
+      const lcTarget = command.oldName.toLowerCase();
+      const byOriginalCaseInsensitive = files.filter((file) => String(file.originalName || '').toLowerCase() === lcTarget);
+      const byStoredCaseInsensitive = files.filter((file) => String(file.name || '').toLowerCase() === lcTarget);
+
+      const candidates = byOriginalExact.length > 0
+        ? byOriginalExact
+        : byStoredExact.length > 0
+          ? byStoredExact
+          : byOriginalCaseInsensitive.length > 0
+            ? byOriginalCaseInsensitive
+            : byStoredCaseInsensitive;
+
+      if (candidates.length === 0) {
+        throw new Error(`File "${command.oldName}" was not found.`);
+      }
+
+      if (candidates.length > 1) {
+        throw new Error(`Multiple files matched "${command.oldName}". Use the exact file name shown in My Files.`);
+      }
+
+      const sourceFile = candidates[0];
+      const renameResponse = await fetch(`/api/files/${encodeURIComponent(sourceFile.name)}/rename`, {
+        method: 'POST',
+        headers: {
+          ...fileApiHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ newName: command.newName }),
+      });
+
+      const renamePayload = await readApiResponse(renameResponse);
+      if (!renameResponse.ok) {
+        const msg = renamePayload.json?.message || renamePayload.raw || 'Rename failed.';
+        throw new Error(String(msg).trim());
+      }
+
+      const renamed = renamePayload.json?.file;
+      const finalName = renamed?.originalName || command.newName;
+      await loadFiles();
+      return `Renamed "${sourceFile.originalName}" to "${finalName}".`;
+    }
+
     async function sendChatMessage() {
       const input = document.getElementById('chatInput');
       const message = input.value.trim();
@@ -524,9 +783,46 @@
       const statusEl = document.getElementById('chatStatus');
       statusEl.textContent = 'Thinking...';
 
-      try {
-        conversationHistory.push({ role: 'user', content: message });
+      conversationHistory.push({ role: 'user', content: message });
 
+      const renameCommand = parseRenameChatCommand(message);
+      if (renameCommand) {
+        try {
+          if (renameCommand.mode === 'bulk_contains') {
+            statusEl.textContent = renameCommand.nameStyle === 'random'
+              ? 'Renaming matching files with random names...'
+              : 'Renaming matching files with generated names...';
+          } else {
+            statusEl.textContent = 'Renaming file...';
+          }
+          const result = await renameFileFromChat(renameCommand);
+          addChatMessage(result, 'assistant');
+          conversationHistory.push({ role: 'assistant', content: result });
+          statusEl.textContent = '';
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Rename failed.';
+          addChatMessage(`Rename failed: ${errorMessage}`, 'error');
+          conversationHistory.push({ role: 'assistant', content: `Rename failed: ${errorMessage}` });
+          statusEl.textContent = '';
+        }
+        return;
+      }
+
+      if (isRenameIntentMessage(message)) {
+        const help = [
+          'I can rename files in your upload folder directly from chat. Try one of these:',
+          '1) rename file "old-name.pdf" to "new-name.pdf"',
+          '2) rename files containing "IMG_" to "Family Photo"',
+          '3) rename files in upload folder containing "draft" to "Client Proposal"',
+          '4) /rename-random "IMG_"',
+        ].join('\n');
+        addChatMessage(help, 'assistant');
+        conversationHistory.push({ role: 'assistant', content: help });
+        statusEl.textContent = '';
+        return;
+      }
+
+      try {
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: {
@@ -614,6 +910,7 @@
     setChatScope('app');
 
     const BROWSER_OWNER_KEY = 'snowfoxBrowserOwnerId';
+    let authUser = null;
 
   </script>
   <script>
@@ -634,10 +931,21 @@
 
     function setFolderLabel() {
       const el = document.getElementById('sessionLabel');
-      const id = getBrowserOwnerId();
       if (el) {
+        if (authUser?.username) {
+          el.textContent = `account: ${authUser.username}`;
+          el.title = authUser.username;
+          return;
+        }
+
+        const id = getBrowserOwnerId();
         el.textContent = `folder: ${id.slice(0, 12)}…`;
         el.title = id;
+      }
+
+      const resetButton = document.getElementById('resetFolderBtn');
+      if (resetButton) {
+        resetButton.classList.toggle('hidden', Boolean(authUser?.username));
       }
     }
 
@@ -661,6 +969,144 @@
       }
 
       return { raw, json, contentType };
+    }
+
+    function setAuthMessage(text, isError) {
+      const el = document.getElementById('authMessage');
+      if (!el) {
+        return;
+      }
+
+      el.textContent = text || '';
+      el.className = `min-h-[1.25rem] text-sm ${isError ? 'text-red-600' : 'text-gray-500'}`;
+    }
+
+    function updateAuthUi() {
+      const authStatusText = document.getElementById('authStatusText');
+      const authHint = document.getElementById('authHint');
+      const authForm = document.getElementById('authForm');
+      const authLoggedInActions = document.getElementById('authLoggedInActions');
+      const authPanel = document.getElementById('authPanel');
+      const headerUsername = document.getElementById('headerUsername');
+
+      if (authStatusText) {
+        authStatusText.textContent = authUser?.username
+          ? `Signed in as ${authUser.username}. New uploads and indexing now use this account.`
+          : 'Guest mode is active. Files stay tied to this browser until you sign in.';
+      }
+
+      if (authHint) {
+        authHint.textContent = authUser?.username
+          ? 'Account ownership now takes priority over the browser folder id.'
+          : 'Sign in to keep uploads and indexing under your account across browsers.';
+      }
+
+      authForm?.classList.toggle('hidden', Boolean(authUser?.username));
+      authLoggedInActions?.classList.toggle('hidden', !authUser?.username);
+
+      if (headerUsername) {
+        if (authUser?.username) {
+          headerUsername.textContent = authUser.username;
+          headerUsername.classList.remove('hidden');
+        } else {
+          headerUsername.textContent = '';
+          headerUsername.classList.add('hidden');
+        }
+      }
+
+      authPanel?.classList.toggle('hidden', Boolean(authUser?.username));
+      setFolderLabel();
+    }
+
+    async function refreshAuthStatus(options = {}) {
+      try {
+        const response = await fetch('/api/auth/status');
+        const { json } = await readApiResponse(response);
+        authUser = json?.authenticated ? json.user : null;
+        updateAuthUi();
+        if (!options.silent) {
+          setAuthMessage(authUser?.username ? 'Login status refreshed.' : '', false);
+        }
+      } catch {
+        authUser = null;
+        updateAuthUi();
+        if (!options.silent) {
+          setAuthMessage('Could not read login status.', true);
+        }
+      }
+    }
+
+    async function submitAuth(mode) {
+      const username = document.getElementById('authUsername')?.value || '';
+      const password = document.getElementById('authPassword')?.value || '';
+      const endpoint = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
+
+      setAuthMessage(mode === 'register' ? 'Creating account…' : 'Signing in…', false);
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const { raw, json } = await readApiResponse(response);
+        if (!response.ok) {
+          throw new Error(json?.message || raw || 'Authentication failed.');
+        }
+
+        authUser = json?.user || null;
+        document.getElementById('authPassword').value = '';
+        updateAuthUi();
+        setAuthMessage(mode === 'register' ? 'Account created and signed in.' : 'Signed in.', false);
+        loadFiles();
+        loadStoredVideos();
+      } catch (error) {
+        setAuthMessage(error instanceof Error ? error.message : 'Authentication failed.', true);
+      }
+    }
+
+    async function logoutUser() {
+      setAuthMessage('Signing out…', false);
+      try {
+        const response = await fetch('/api/auth/logout', { method: 'POST' });
+        const { raw, json } = await readApiResponse(response);
+        if (!response.ok) {
+          throw new Error(json?.message || raw || 'Logout failed.');
+        }
+
+        authUser = null;
+        updateAuthUi();
+        setAuthMessage('Signed out. Guest browser folder is active again.', false);
+        loadFiles();
+        loadStoredVideos();
+      } catch (error) {
+        setAuthMessage(error instanceof Error ? error.message : 'Logout failed.', true);
+      }
+    }
+
+    async function submitPasswordChange(event) {
+      event.preventDefault();
+      const currentPassword = document.getElementById('currentPassword')?.value || '';
+      const nextPassword = document.getElementById('nextPassword')?.value || '';
+
+      setAuthMessage('Updating password…', false);
+      try {
+        const response = await fetch('/api/auth/change-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentPassword, nextPassword }),
+        });
+        const { raw, json } = await readApiResponse(response);
+        if (!response.ok) {
+          throw new Error(json?.message || raw || 'Password change failed.');
+        }
+
+        document.getElementById('currentPassword').value = '';
+        document.getElementById('nextPassword').value = '';
+        setAuthMessage('Password updated.', false);
+      } catch (error) {
+        setAuthMessage(error instanceof Error ? error.message : 'Password change failed.', true);
+      }
     }
 
     // ── Tab switching ──────────────────────────────────────────────────────────
@@ -1082,6 +1528,7 @@
             <td class="py-3 pr-4 text-gray-500">${escapeHtml(date)}</td>
             <td class="py-3 text-right space-x-3">
               <button class="text-slate-600 hover:text-slate-800 preview-btn" data-name="${escapeHtml(file.name)}">Preview</button>
+              <button class="text-amber-600 hover:text-amber-800 rename-btn" data-name="${escapeHtml(file.name)}">Rename</button>
               <a href="/api/files/${encodeURIComponent(file.name)}?bid=${encodeURIComponent(getBrowserOwnerId())}" class="text-blue-600 hover:text-blue-800" download>Download</a>
               <button class="text-red-500 hover:text-red-700 delete-btn" data-name="${escapeHtml(file.name)}">Delete</button>
             </td>
@@ -1097,6 +1544,59 @@
               return;
             }
             await openFilePreview(file);
+          });
+        });
+
+        tbody.querySelectorAll('.rename-btn').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const file = files.find((entry) => entry.name === btn.dataset.name);
+            if (!file) {
+              alert('File metadata not found. Please refresh and try again.');
+              return;
+            }
+
+            const nextName = prompt('Enter a new file name:', file.originalName || file.name);
+            if (nextName === null) {
+              return;
+            }
+
+            const trimmedName = nextName.trim();
+            if (!trimmedName) {
+              alert('File name cannot be empty.');
+              return;
+            }
+
+            if (trimmedName === (file.originalName || file.name)) {
+              return;
+            }
+
+            try {
+              const res = await fetch(`/api/files/${encodeURIComponent(file.name)}/rename`, {
+                method: 'POST',
+                headers: {
+                  ...fileApiHeaders(),
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ newName: trimmedName }),
+              });
+
+              const { raw, json } = await readApiResponse(res);
+              if (!res.ok) {
+                let message = 'Rename failed.';
+                if (json?.message) {
+                  message = json.message;
+                } else if (raw && raw.trim().startsWith('<')) {
+                  message = `Rename failed (${res.status}). Upstream returned HTML (likely Nginx/proxy).`;
+                } else if (raw.trim()) {
+                  message = raw.trim().slice(0, 240);
+                }
+                throw new Error(message);
+              }
+
+              loadFiles();
+            } catch (error) {
+              alert(error instanceof Error ? error.message : 'Rename failed.');
+            }
           });
         });
 
@@ -1240,6 +1740,13 @@
 
     document.getElementById('refreshFilesBtn').addEventListener('click', loadFiles);
     document.getElementById('refreshStoredVideosBtn').addEventListener('click', loadStoredVideos);
+    document.getElementById('authForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      submitAuth('login');
+    });
+    document.getElementById('registerBtn').addEventListener('click', () => submitAuth('register'));
+    document.getElementById('logoutBtn').addEventListener('click', logoutUser);
+    document.getElementById('changePasswordForm').addEventListener('submit', submitPasswordChange);
     document.getElementById('resetFolderBtn').addEventListener('click', () => {
       if (!confirm('Create a new folder identity? You will no longer see files from the current folder in this browser.')) {
         return;
@@ -1249,6 +1756,7 @@
       setFolderLabel();
       loadFiles();
     });
+    refreshAuthStatus({ silent: true });
     loadFiles();
     loadStoredVideos();
 

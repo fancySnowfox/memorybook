@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import session from 'express-session';
 import { spawn } from 'node:child_process';
 import chatRoute, { getModels } from './routes/chat.js';
+import authRoutes from './routes/auth.js';
 import { configRoutes } from './routes/config.js';
 import {
   uploadMovMiddleware,
@@ -15,7 +16,7 @@ import {
   downloadStoredConvertedVideo,
   deleteStoredConvertedVideo,
 } from './routes/video.js';
-import { uploadPdfMiddleware, handlePdfUpload, listFiles, serveFile, deleteFile, convertFileToPreviewPdf } from './routes/files.js';
+import { uploadPdfMiddleware, handlePdfUpload, listFiles, serveFile, deleteFile, renameFile, convertFileToPreviewPdf } from './routes/files.js';
 import { checkApiConnectivity } from './utils/health-check.js';
 import { getRagStatus, reindexRag } from './utils/rag-llamaindex.js';
 import { initFaqMatcher } from './utils/faq-matcher.js';
@@ -125,7 +126,9 @@ app.use(cors());
 app.use(express.json({ charset: 'utf-8' }));
 app.use(express.text({ charset: 'utf-8' }));
 app.use((req, res, next) => {
-  res.set('Content-Type', 'application/json; charset=utf-8');
+  if (req.path.startsWith('/api/')) {
+    res.type('application/json; charset=utf-8');
+  }
   next();
 });
 app.use(express.static(path.join(__dirname, '../public')));
@@ -142,6 +145,8 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
 
 // Routes
+app.use('/api/auth', authRoutes);
+
 app.get('/', (req, res) => {
   res.render('index');
 });
@@ -242,6 +247,7 @@ app.get('/api/files', listFiles);
 app.get('/api/files/:filename', serveFile);
 app.delete('/api/files/:filename', deleteFile);
 app.post('/api/files/:filename/delete', deleteFile);
+app.post('/api/files/:filename/rename', renameFile);
 app.post('/api/files/:filename/preview-pdf', convertFileToPreviewPdf);
 
 // RAG endpoints

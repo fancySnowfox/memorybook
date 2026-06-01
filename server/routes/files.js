@@ -6,6 +6,7 @@ import { PDFDocument } from 'pdf-lib';
 import JSZip from 'jszip';
 import { Builder, parseStringPromise } from 'xml2js';
 import { spawn } from 'node:child_process';
+import { resolveRequestOwnerId } from '../utils/owner-id.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
@@ -30,6 +31,7 @@ const ACCEPTED_UPLOAD_EXTENSIONS = new Set([
 const LOGICAL_FILE_LIMIT_BYTES = 50 * 1024 * 1024;
 const RAW_UPLOAD_LIMIT_BYTES = parseInt(process.env.RAW_UPLOAD_MAX_BYTES || String(300 * 1024 * 1024), 10);
 const TEXT_SPLITTABLE_EXTENSIONS = new Set(['.txt', '.csv', '.rtf', '.md', '.json']);
+const FILE_META_FILENAME = '.file-meta.json';
 
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) {
@@ -50,21 +52,17 @@ function byteLength(text) {
   return Buffer.byteLength(String(text || ''), 'utf8');
 }
 
-function normalizeOwnerId(rawId) {
-  const safeId = String(rawId || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
-  return safeId || 'anonymous';
-}
-
-// Prefer a persistent browser ID from UI, then fall back to express-session.
 function ownerId(req) {
-  const headerId = req.get('X-Browser-Id');
-  const queryId = req.query?.bid;
-  const sessionId = req.session?.id;
-  return normalizeOwnerId(headerId || queryId || sessionId);
+  return resolveRequestOwnerId(req);
 }
 
 function extensionOf(fileName) {
   return path.extname(fileName || '').toLowerCase();
+}
+
+function originalNameFromStoredName(storedName) {
+  const dashIdx = String(storedName || '').indexOf('-');
+  return dashIdx !== -1 ? storedName.slice(dashIdx + 1) : storedName;
 }
 
 function toSafeStoredName(fileName) {
@@ -72,6 +70,74 @@ function toSafeStoredName(fileName) {
     .replace(/[\\/:\*\?"<>\|]/g, '_')
     .replace(/^\s+|\s+$/g, '')
     .slice(0, 255);
+}
+
+function normalizeDisplayName(fileName) {
+  const normalized = String(fileName || '').replace(/[\r\n]+/g, ' ').trim();
+  return normalized || 'file';
+}
+
+function buildOpaqueStoredName(originalName) {
+  const ext = extensionOf(originalName);
+  const token = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return `${token}${ext}`;
+}
+
+function fileMetadataPath(dir) {
+  return path.join(dir, FILE_META_FILENAME);
+}
+
+async function readFileMetadata(dir) {
+  const metaPath = fileMetadataPath(dir);
+  try {
+    const raw = await fs.promises.readFile(metaPath, 'utf8');
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return {};
+    }
+    throw error;
+  }
+}
+
+async function writeFileMetadata(dir, metadata) {
+  const metaPath = fileMetadataPath(dir);
+  const payload = JSON.stringify(metadata, null, 2);
+  await fs.promises.writeFile(metaPath, payload, 'utf8');
+}
+
+async function getOriginalNameForStored(dir, storedName) {
+  const metadata = await readFileMetadata(dir);
+  const fromMeta = metadata?.[storedName];
+  if (typeof fromMeta === 'string' && fromMeta.trim()) {
+    return fromMeta;
+  }
+  return originalNameFromStoredName(storedName);
+}
+
+async function upsertOriginalNames(dir, entries) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return;
+  }
+
+  const metadata = await readFileMetadata(dir);
+  for (const entry of entries) {
+    if (!entry?.name) {
+      continue;
+    }
+    metadata[entry.name] = normalizeDisplayName(entry.originalName);
+  }
+  await writeFileMetadata(dir, metadata);
+}
+
+async function deleteOriginalName(dir, storedName) {
+  const metadata = await readFileMetadata(dir);
+  if (!(storedName in metadata)) {
+    return;
+  }
+  delete metadata[storedName];
+  await writeFileMetadata(dir, metadata);
 }
 
 function runCommand(command, args) {
@@ -554,9 +620,7 @@ function makeUpload(req) {
   const storage = multer.diskStorage({
     destination: userDir(req),
     filename: (_, file, cb) => {
-      const timestamp = Date.now();
-      const safeName = toSafeStoredName(file.originalname);
-      cb(null, `${timestamp}-${safeName}`);
+      cb(null, buildOpaqueStoredName(file.originalname));
     },
   });
   return multer({
@@ -613,6 +677,8 @@ export async function handlePdfUpload(req, res) {
         dir: path.dirname(uploadedPath),
       });
 
+      await upsertOriginalNames(path.dirname(uploadedPath), splitFiles);
+
       return res.json({
         status: 'ok',
         split: true,
@@ -620,6 +686,11 @@ export async function handlePdfUpload(req, res) {
         files: splitFiles,
       });
     }
+
+    await upsertOriginalNames(path.dirname(uploadedPath), [{
+      name: finalName,
+      originalName: req.file.originalname,
+    }]);
 
     res.json({
       status: 'ok',
@@ -644,18 +715,22 @@ export async function handlePdfUpload(req, res) {
 export async function listFiles(req, res) {
   const dir = userDir(req);
   try {
+    const metadata = await readFileMetadata(dir);
     const entries = await fs.promises.readdir(dir);
     const files = [];
 
     for (const name of entries) {
+      if (name === FILE_META_FILENAME) {
+        continue;
+      }
+
       const filePath = path.join(dir, name);
       const stat = await fs.promises.stat(filePath);
       if (!stat.isFile()) {
         continue;
       }
 
-      const dashIdx = name.indexOf('-');
-      const originalName = dashIdx !== -1 ? name.slice(dashIdx + 1) : name;
+      const originalName = metadata?.[name] || originalNameFromStoredName(name);
       files.push({
         name,
         originalName,
@@ -676,6 +751,10 @@ export async function serveFile(req, res) {
   const safeName = path.basename(req.params.filename);
   const filePath = path.join(dir, safeName);
 
+  if (safeName === FILE_META_FILENAME) {
+    return res.status(404).json({ status: 'error', message: 'File not found.' });
+  }
+
   // Guard against path traversal
   if (!path.resolve(filePath).startsWith(path.resolve(dir) + path.sep)) {
     return res.status(400).json({ status: 'error', message: 'Invalid filename.' });
@@ -687,8 +766,7 @@ export async function serveFile(req, res) {
     return res.status(404).json({ status: 'error', message: 'File not found.' });
   }
 
-  const dashIdx = safeName.indexOf('-');
-  const downloadName = dashIdx !== -1 ? safeName.slice(dashIdx + 1) : safeName;
+  const downloadName = normalizeDisplayName(await getOriginalNameForStored(dir, safeName));
   if (String(req.query?.preview || '').toLowerCase() === '1') {
     res.type(downloadName);
     res.setHeader('Content-Disposition', `inline; filename="${downloadName.replace(/"/g, '')}"`);
@@ -704,12 +782,17 @@ export async function deleteFile(req, res) {
   const safeName = path.basename(req.params.filename);
   const filePath = path.join(dir, safeName);
 
+  if (safeName === FILE_META_FILENAME) {
+    return res.status(404).json({ status: 'error', message: 'File not found.' });
+  }
+
   if (!path.resolve(filePath).startsWith(path.resolve(dir) + path.sep)) {
     return res.status(400).json({ status: 'error', message: 'Invalid filename.' });
   }
 
   try {
     await fs.promises.unlink(filePath);
+    await deleteOriginalName(dir, safeName).catch(() => {});
     res.json({ status: 'ok' });
   } catch (error) {
     console.error('[files] delete failed', {
@@ -723,10 +806,94 @@ export async function deleteFile(req, res) {
   }
 }
 
+export async function renameFile(req, res) {
+  const dir = userDir(req);
+  const safeName = path.basename(req.params.filename);
+
+  if (safeName === FILE_META_FILENAME) {
+    return res.status(404).json({ status: 'error', message: 'File not found.' });
+  }
+
+  const sourcePath = path.join(dir, safeName);
+
+  if (!path.resolve(sourcePath).startsWith(path.resolve(dir) + path.sep)) {
+    return res.status(400).json({ status: 'error', message: 'Invalid filename.' });
+  }
+
+  const requestedName = String(req.body?.newName || '').trim();
+  if (!requestedName) {
+    return res.status(400).json({ status: 'error', message: 'New name is required.' });
+  }
+
+  const currentOriginalName = await getOriginalNameForStored(dir, safeName);
+  const currentExt = extensionOf(currentOriginalName) || extensionOf(safeName);
+  let normalizedRequestedName = toSafeStoredName(requestedName);
+
+  if (!normalizedRequestedName) {
+    return res.status(400).json({ status: 'error', message: 'New name is invalid after sanitization.' });
+  }
+
+  if (!extensionOf(normalizedRequestedName) && currentExt) {
+    normalizedRequestedName += currentExt;
+  }
+
+  if (normalizedRequestedName === currentOriginalName) {
+    return res.json({
+      status: 'ok',
+      file: {
+        name: safeName,
+        originalName: currentOriginalName,
+      },
+    });
+  }
+
+  try {
+    await fs.promises.access(sourcePath, fs.constants.F_OK);
+  } catch {
+    return res.status(404).json({ status: 'error', message: 'File not found.' });
+  }
+
+  try {
+    const entries = await fs.promises.readdir(dir);
+    const metadata = await readFileMetadata(dir);
+    const duplicate = entries.some((entryName) => {
+      if (entryName === FILE_META_FILENAME || entryName === safeName) {
+        return false;
+      }
+      const entryDisplayName = metadata?.[entryName] || originalNameFromStoredName(entryName);
+      return String(entryDisplayName).toLowerCase() === normalizedRequestedName.toLowerCase();
+    });
+
+    if (duplicate) {
+      return res.status(409).json({ status: 'error', message: 'A file with that name already exists.' });
+    }
+
+    metadata[safeName] = normalizeDisplayName(normalizedRequestedName);
+    await writeFileMetadata(dir, metadata);
+
+    const stat = await fs.promises.stat(sourcePath);
+    return res.json({
+      status: 'ok',
+      file: {
+        name: safeName,
+        originalName: metadata[safeName],
+        size: stat.size,
+        uploadedAt: stat.mtime.toISOString(),
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ status: 'error', message: 'Failed to rename file.' });
+  }
+}
+
 export async function convertFileToPreviewPdf(req, res) {
   const dir = userDir(req);
   const safeName = path.basename(req.params.filename);
   const filePath = path.join(dir, safeName);
+
+  if (safeName === FILE_META_FILENAME) {
+    return res.status(404).json({ status: 'error', message: 'File not found.' });
+  }
 
   if (!path.resolve(filePath).startsWith(path.resolve(dir) + path.sep)) {
     return res.status(400).json({ status: 'error', message: 'Invalid filename.' });
@@ -746,12 +913,15 @@ export async function convertFileToPreviewPdf(req, res) {
     const convertedPath = await convertOfficeToPdf(filePath);
     const convertedName = path.basename(convertedPath);
     const stat = await fs.promises.stat(convertedPath);
+    const sourceOriginalName = await getOriginalNameForStored(dir, safeName);
+    const sourceOriginalExt = extensionOf(sourceOriginalName) || '.pptx';
+    const convertedOriginalName = `${path.basename(sourceOriginalName, sourceOriginalExt)}.pdf`;
 
     res.json({
       status: 'ok',
       file: {
         name: convertedName,
-        originalName: `${path.basename(safeName, '.pptx')}.pdf`,
+        originalName: convertedOriginalName,
         size: stat.size,
         uploadedAt: stat.mtime.toISOString(),
         convertedFrom: safeName,

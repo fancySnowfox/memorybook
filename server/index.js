@@ -17,6 +17,7 @@ import {
   deleteStoredConvertedVideo,
 } from './routes/video.js';
 import { uploadPdfMiddleware, handlePdfUpload, listFiles, serveFile, deleteFile, renameFile, convertFileToPreviewPdf } from './routes/files.js';
+import { uploadAudioMiddleware, transcribeAudio } from './routes/audio.js';
 import { checkApiConnectivity } from './utils/health-check.js';
 import { getRagStatus, reindexRag } from './utils/rag-llamaindex.js';
 import { initFaqMatcher } from './utils/faq-matcher.js';
@@ -239,6 +240,7 @@ app.delete('/api/video/stored/:filename', deleteStoredConvertedVideo);
 app.post('/api/video/stored/:filename/delete', deleteStoredConvertedVideo);
 // logUploadProgress removed, formidable handles progress
 app.post('/api/video/convert', uploadMovMiddleware, convertMovToMp4);
+app.post('/api/audio/transcribe', uploadAudioMiddleware, transcribeAudio);
 
 // File management endpoints
 app.get('/api/session', (req, res) => res.json({ sessionId: req.session.id }));

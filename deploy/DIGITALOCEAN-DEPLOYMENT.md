@@ -114,6 +114,57 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
+### Optional: Dedicated Whisper droplet
+
+If you want `whisper.memorystory.org` to point at a separate DigitalOcean droplet running WhisperAPI, set the DNS A record for `whisper` to that droplet's IP and deploy the separate Nginx template there:
+
+```bash
+# 1. Bootstrap HTTP only so nginx can start before the certificate exists.
+sudo cp /home/memorybook/memorybook/deploy/nginx-whisper-bootstrap.conf /etc/nginx/conf.d/whisper.conf
+sudo nginx -t
+sudo systemctl restart nginx
+
+# 2. Request the certificate.
+sudo certbot certonly --nginx -d whisper.memorystory.org \
+   --agree-tos -m admin@memorystory.org --non-interactive
+
+# 3. Replace the bootstrap config with the full HTTPS config.
+sudo cp /home/memorybook/memorybook/deploy/nginx-whisper.conf /etc/nginx/conf.d/whisper.conf
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+By default this template expects WhisperAPI on `127.0.0.1:9000`.
+
+If WhisperAPI runs in Docker on that droplet, publish the container port to localhost only so it is reachable by Nginx but not exposed publicly:
+
+```bash
+docker run -d --name whisper-api \
+   -p 127.0.0.1:9000:9000 \
+   --restart unless-stopped \
+   your-registry/whisper-api:latest
+```
+
+If your container listens internally on a different port, keep host port `9000` on the left side and change the right side accordingly.
+
+If you prefer managing Whisper as a system service, use the included unit file:  
+
+```bash
+sudo cp /home/memorybook/memorybook/deploy/whisper-docker.service /etc/systemd/system/whisper-docker.service
+sudo systemctl daemon-reload
+sudo systemctl enable whisper-docker
+sudo systemctl start whisper-docker
+sudo systemctl status whisper-docker
+```
+
+Useful service operations:
+
+```bash
+sudo systemctl restart whisper-docker
+sudo journalctl -u whisper-docker -f
+sudo docker logs -f whisper-cpu
+```
+
 ### 7. Get SSL Certificate
 
 ```bash

@@ -86,6 +86,9 @@
           <button id="tabVideoBtn" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-blue-600 text-blue-600 focus:outline-none" data-tab="tabVideo">
             Video Converter
           </button>
+          <button id="tabAudioBtn" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none" data-tab="tabAudio">
+            Audio Transcription
+          </button>
           <button id="tabPdfBtn" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none" data-tab="tabPdf">
             File Upload
           </button>
@@ -126,6 +129,34 @@
               Convert and Download
             </button>
             <p id="convertStatus" class="text-sm text-gray-600 min-h-[1.25rem]"></p>
+          </form>
+        </div>
+
+        <!-- Tab: Audio Transcription -->
+        <div id="tabAudio" class="tab-panel hidden">
+          <div class="flex flex-col items-center text-center mb-4">
+            <div class="bg-emerald-100 rounded-full p-4 mb-4">
+              <svg class="h-10 w-10 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v3m0-3a6 6 0 006-6V8a6 6 0 10-12 0v4a6 6 0 006 6zm0 0a6 6 0 006-6V8a6 6 0 10-12 0v4a6 6 0 006 6z" />
+              </svg>
+            </div>
+            <p class="text-gray-600">Upload an MP3 or WAV file and generate a transcript with Whisper.</p>
+          </div>
+
+          <form id="audioTranscribeForm" class="space-y-4">
+            <div>
+              <label for="audioFile" class="block text-sm font-medium text-gray-700 mb-2">Select audio file (.mp3 or .wav)</label>
+              <input id="audioFile" name="audio" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav" class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:border-0 file:rounded-md file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" required>
+            </div>
+            <button id="audioTranscribeBtn" type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-medium py-2.5 px-4 rounded-md transition-colors">
+              Transcribe Audio
+            </button>
+            <p id="audioTranscribeStatus" class="text-sm text-gray-600 min-h-[1.25rem]"></p>
+            <div>
+              <label for="audioTranscribeOutput" class="block text-sm font-medium text-gray-700 mb-2">Transcript</label>
+              <textarea id="audioTranscribeOutput" rows="8" class="block w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-800" placeholder="Transcript will appear here after upload." readonly></textarea>
+              <p id="audioTranscribeMeta" class="mt-2 text-xs text-gray-500"></p>
+            </div>
           </form>
         </div>
 
@@ -1365,6 +1396,80 @@
           if (progressPoller) {
             window.clearInterval(progressPoller);
           }
+          button.disabled = false;
+        }
+      });
+    })();
+
+    // ── Audio transcription ───────────────────────────────────────────────────
+    (function () {
+      const form = document.getElementById('audioTranscribeForm');
+      const fileInput = document.getElementById('audioFile');
+      const button = document.getElementById('audioTranscribeBtn');
+      const statusEl = document.getElementById('audioTranscribeStatus');
+      const outputEl = document.getElementById('audioTranscribeOutput');
+      const metaEl = document.getElementById('audioTranscribeMeta');
+
+      if (!form || !fileInput || !button || !statusEl || !outputEl || !metaEl) {
+        return;
+      }
+
+      function setStatus(text, isError) {
+        statusEl.textContent = text;
+        statusEl.className = `text-sm min-h-[1.25rem] ${isError ? 'text-red-600' : 'text-gray-600'}`;
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) {
+          setStatus('Please select an MP3 or WAV file first.', true);
+          return;
+        }
+
+        button.disabled = true;
+        outputEl.value = '';
+        metaEl.textContent = '';
+        setStatus(`Uploading ${file.name}...`, false);
+
+        try {
+          const formData = new FormData();
+          formData.append('audio', file);
+
+          const response = await fetch('/api/audio/transcribe', {
+            method: 'POST',
+            headers: fileApiHeaders(),
+            body: formData,
+          });
+
+          const { raw, json } = await readApiResponse(response);
+          if (!response.ok) {
+            let message = 'Audio transcription failed.';
+            if (json?.message) {
+              message = json.message;
+            } else if (raw && raw.trim().startsWith('<')) {
+              message = `Audio transcription failed (${response.status}). Upstream returned HTML (likely Nginx/proxy).`;
+            } else if (raw.trim()) {
+              message = raw.trim().slice(0, 240);
+            }
+            throw new Error(message);
+          }
+
+          const transcript = typeof json?.text === 'string' ? json.text : '';
+          outputEl.value = transcript;
+
+          const segmentCount = Array.isArray(json?.segments) ? json.segments.length : 0;
+          const language = json?.language || 'unknown';
+          metaEl.textContent = `Language: ${language} · Segments: ${segmentCount}`;
+
+          if (!transcript.trim()) {
+            setStatus('Transcription completed, but no speech was detected in this file.', false);
+          } else {
+            setStatus('Transcription completed.', false);
+          }
+        } catch (error) {
+          setStatus(error instanceof Error ? error.message : 'Audio transcription failed.', true);
+        } finally {
           button.disabled = false;
         }
       });

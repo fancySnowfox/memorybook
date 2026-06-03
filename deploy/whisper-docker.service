@@ -1,0 +1,27 @@
+[Unit]
+Description=Whisper API Docker Container
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+TimeoutStartSec=0
+
+# Pull the latest image before each start (safe no-op if already present).
+ExecStartPre=/usr/bin/docker pull onerahmet/openai-whisper-asr-webservice:latest
+
+# Remove any old container with the same name before starting.
+ExecStartPre=-/usr/bin/docker rm -f whisper-cpu
+
+# Bind to localhost only so traffic must pass through Nginx.
+ExecStart=/usr/bin/docker run --name whisper-cpu --rm -p 127.0.0.1:9000:9000 onerahmet/openai-whisper-asr-webservice:latest
+
+# Graceful stop and cleanup.
+ExecStop=/usr/bin/docker stop -t 20 whisper-cpu
+ExecStopPost=-/usr/bin/docker rm -f whisper-cpu
+
+[Install]
+WantedBy=multi-user.target

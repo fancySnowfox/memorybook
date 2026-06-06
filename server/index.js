@@ -17,7 +17,7 @@ import {
   deleteStoredConvertedVideo,
 } from './routes/video.js';
 import { uploadPdfMiddleware, handlePdfUpload, listFiles, serveFile, deleteFile, renameFile, convertFileToPreviewPdf } from './routes/files.js';
-import { uploadAudioMiddleware, transcribeAudio } from './routes/audio.js';
+import { uploadAudioMiddleware, transcribeAudio, detectAudioLanguage } from './routes/audio.js';
 import { checkApiConnectivity } from './utils/health-check.js';
 import { getRagStatus, reindexRag } from './utils/rag-llamaindex.js';
 import { initFaqMatcher } from './utils/faq-matcher.js';
@@ -29,6 +29,7 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 const DEBUG_MODE = process.env.DEBUG_MODE === 'true' || process.env.NODE_ENV !== 'production';
 const DEBUG_ADMIN_USER = process.env.DEBUG_ADMIN_USER || 'admin';
 const DEBUG_ADMIN_PASSWORD = process.env.DEBUG_ADMIN_PASSWORD;
+const WHISPER_API_BASE_URL = (process.env.WHISPER_API_BASE_URL || 'http://127.0.0.1:9000').trim();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -193,6 +194,10 @@ app.get('/debug', requireDebugAdmin, async (req, res) => {
       ffmpeg,
       libreOffice,
     },
+    integration: {
+      whisperApiBaseUrl: WHISPER_API_BASE_URL,
+      whisperTimeoutMs: parseInt(process.env.WHISPER_TIMEOUT_MS || String(10 * 60 * 1000), 10),
+    },
     timestamp: new Date().toISOString(),
   });
 });
@@ -241,6 +246,7 @@ app.post('/api/video/stored/:filename/delete', deleteStoredConvertedVideo);
 // logUploadProgress removed, formidable handles progress
 app.post('/api/video/convert', uploadMovMiddleware, convertMovToMp4);
 app.post('/api/audio/transcribe', uploadAudioMiddleware, transcribeAudio);
+app.post('/api/audio/detect-language', uploadAudioMiddleware, detectAudioLanguage);
 
 // File management endpoints
 app.get('/api/session', (req, res) => res.json({ sessionId: req.session.id }));
@@ -298,6 +304,7 @@ function startServer(port) {
     console.log(`- Home:         http://localhost:${port}/`);
     console.log(`- Chat:         http://localhost:${port}/chat`);
     console.log(`- Widget demo:  http://localhost:${port}/widget-demo\n`);
+    console.log(`[startup] Whisper API base URL: ${WHISPER_API_BASE_URL}`);
     // Pre-compute FAQ embeddings in the background so the first query is fast.
     initFaqMatcher().catch((err) => console.warn('[faq-matcher] background init failed:', err.message));
   });

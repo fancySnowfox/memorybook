@@ -148,9 +148,25 @@
               <label for="audioFile" class="block text-sm font-medium text-gray-700 mb-2">Select audio file (.mp3 or .wav)</label>
               <input id="audioFile" name="audio" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav" class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:border-0 file:rounded-md file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" required>
             </div>
-            <button id="audioTranscribeBtn" type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-medium py-2.5 px-4 rounded-md transition-colors">
-              Transcribe Audio
-            </button>
+            <label for="audioChunkBySilence" class="flex items-center gap-2 text-sm text-gray-700">
+              <input id="audioChunkBySilence" name="audioChunkBySilence" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+              Split audio by silence before transcription (experimental)
+            </label>
+            <div>
+              <label for="audioOutputMode" class="block text-sm font-medium text-gray-700 mb-2">Transcript output mode</label>
+              <select id="audioOutputMode" name="audioOutputMode" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-emerald-500 focus:outline-none">
+                <option value="full">Full transcript</option>
+                <option value="phrases">Phrase list (helpful for chunked input)</option>
+              </select>
+            </div>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <button id="audioTranscribeBtn" type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-medium py-2.5 px-4 rounded-md transition-colors">
+                Transcribe Audio
+              </button>
+              <button id="audioDetectBtn" type="button" class="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-teal-300 text-white font-medium py-2.5 px-4 rounded-md transition-colors">
+                Detect Language
+              </button>
+            </div>
             <p id="audioTranscribeStatus" class="text-sm text-gray-600 min-h-[1.25rem]"></p>
             <div>
               <label for="audioTranscribeOutput" class="block text-sm font-medium text-gray-700 mb-2">Transcript</label>
@@ -1406,17 +1422,237 @@
       const form = document.getElementById('audioTranscribeForm');
       const fileInput = document.getElementById('audioFile');
       const button = document.getElementById('audioTranscribeBtn');
+      const detectButton = document.getElementById('audioDetectBtn');
+      const chunkBySilenceCheckbox = document.getElementById('audioChunkBySilence');
+      const outputModeSelect = document.getElementById('audioOutputMode');
       const statusEl = document.getElementById('audioTranscribeStatus');
       const outputEl = document.getElementById('audioTranscribeOutput');
       const metaEl = document.getElementById('audioTranscribeMeta');
 
-      if (!form || !fileInput || !button || !statusEl || !outputEl || !metaEl) {
+      if (!form || !fileInput || !button || !detectButton || !chunkBySilenceCheckbox || !outputModeSelect || !statusEl || !outputEl || !metaEl) {
         return;
       }
 
       function setStatus(text, isError) {
         statusEl.textContent = text;
         statusEl.className = `text-sm min-h-[1.25rem] ${isError ? 'text-red-600' : 'text-gray-600'}`;
+      }
+
+      function setAudioActionsDisabled(disabled) {
+        button.disabled = disabled;
+        detectButton.disabled = disabled;
+      }
+
+      function normalizeMonoChannel(audioBuffer) {
+        const frameCount = audioBuffer.length;
+        const mono = new Float32Array(frameCount);
+        const channelCount = Math.max(1, audioBuffer.numberOfChannels);
+
+        for (let channel = 0; channel < channelCount; channel += 1) {
+          const source = audioBuffer.getChannelData(channel);
+          for (let i = 0; i < frameCount; i += 1) {
+            mono[i] += source[i] / channelCount;
+          }
+        }
+
+        return mono;
+      }
+
+      function detectSplitBoundariesBySilence(samples, sampleRate, options = {}) {
+        const threshold = Number.isFinite(options.threshold) ? options.threshold : 0.015;
+        const minSilenceMs = Number.isFinite(options.minSilenceMs) ? options.minSilenceMs : 650;
+        const minChunkMs = Number.isFinite(options.minChunkMs) ? options.minChunkMs : 3500;
+        const minSilenceSamples = Math.max(1, Math.floor(sampleRate * (minSilenceMs / 1000)));
+        const minChunkSamples = Math.max(1, Math.floor(sampleRate * (minChunkMs / 1000)));
+
+        const silenceRuns = [];
+        let silentRunStart = -1;
+        let silentCount = 0;
+
+        for (let i = 0; i < samples.length; i += 1) {
+          if (Math.abs(samples[i]) <= threshold) {
+            silentCount += 1;
+            if (silentCount === minSilenceSamples) {
+              silentRunStart = i - minSilenceSamples + 1;
+            }
+          } else {
+            if (silentRunStart >= 0) {
+              silenceRuns.push([silentRunStart, i - 1]);
+            }
+            silentRunStart = -1;
+            silentCount = 0;
+          }
+        }
+
+        if (silentRunStart >= 0) {
+          silenceRuns.push([silentRunStart, samples.length - 1]);
+        }
+
+        const boundaries = [];
+        let lastBoundary = 0;
+        for (const [start, end] of silenceRuns) {
+          const midpoint = Math.floor((start + end) / 2);
+          if ((midpoint - lastBoundary) < minChunkSamples) {
+            continue;
+          }
+          if ((samples.length - midpoint) < minChunkSamples) {
+            continue;
+          }
+          boundaries.push(midpoint);
+          lastBoundary = midpoint;
+        }
+
+        return boundaries;
+      }
+
+      function encodeWavBlobFromMono(samples, sampleRate) {
+        const buffer = new ArrayBuffer(44 + samples.length * 2);
+        const view = new DataView(buffer);
+        let offset = 0;
+
+        function writeString(value) {
+          for (let i = 0; i < value.length; i += 1) {
+            view.setUint8(offset + i, value.charCodeAt(i));
+          }
+          offset += value.length;
+        }
+
+        writeString('RIFF');
+        view.setUint32(offset, 36 + samples.length * 2, true);
+        offset += 4;
+        writeString('WAVE');
+        writeString('fmt ');
+        view.setUint32(offset, 16, true);
+        offset += 4;
+        view.setUint16(offset, 1, true);
+        offset += 2;
+        view.setUint16(offset, 1, true);
+        offset += 2;
+        view.setUint32(offset, sampleRate, true);
+        offset += 4;
+        view.setUint32(offset, sampleRate * 2, true);
+        offset += 4;
+        view.setUint16(offset, 2, true);
+        offset += 2;
+        view.setUint16(offset, 16, true);
+        offset += 2;
+        writeString('data');
+        view.setUint32(offset, samples.length * 2, true);
+        offset += 4;
+
+        for (let i = 0; i < samples.length; i += 1) {
+          const clamped = Math.max(-1, Math.min(1, samples[i]));
+          view.setInt16(offset, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
+          offset += 2;
+        }
+
+        return new Blob([buffer], { type: 'audio/wav' });
+      }
+
+      async function splitAudioFileOnSilence(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        try {
+          const decoded = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+          const mono = normalizeMonoChannel(decoded);
+          const boundaries = detectSplitBoundariesBySilence(mono, decoded.sampleRate);
+
+          if (boundaries.length === 0) {
+            return [];
+          }
+
+          const chunks = [];
+          let start = 0;
+          const points = [...boundaries, mono.length];
+          for (const end of points) {
+            if (end <= start) {
+              continue;
+            }
+            const slice = mono.subarray(start, end);
+            if (slice.length < decoded.sampleRate) {
+              start = end;
+              continue;
+            }
+            const blob = encodeWavBlobFromMono(slice, decoded.sampleRate);
+            chunks.push(blob);
+            start = end;
+          }
+
+          return chunks;
+        } finally {
+          await audioCtx.close().catch(() => {});
+        }
+      }
+
+      async function postAudioForm(endpoint, fileOrBlob, fileName) {
+        const formData = new FormData();
+        formData.append('audio', fileOrBlob, fileName);
+
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: fileApiHeaders(),
+          body: formData,
+        });
+
+        const { raw, json } = await readApiResponse(response);
+        if (!response.ok) {
+          let message = 'Audio request failed.';
+          if (json?.message) {
+            message = json.message;
+          } else if (raw && raw.trim().startsWith('<')) {
+            message = `Audio request failed (${response.status}). Upstream returned HTML (likely Nginx/proxy).`;
+          } else if (raw.trim()) {
+            message = raw.trim().slice(0, 240);
+          }
+          throw new Error(message);
+        }
+
+        return { raw, json };
+      }
+
+      async function runLanguageDetection(file) {
+        outputEl.value = '';
+        metaEl.textContent = '';
+        setStatus(`Detecting language for ${file.name}...`, false);
+        const { json } = await postAudioForm('/api/audio/detect-language', file, file.name);
+
+        const language = json?.language || 'unknown';
+        const confidence = Number.isFinite(json?.confidence) ? json.confidence : null;
+        metaEl.textContent = confidence === null
+          ? `Detected language: ${language}`
+          : `Detected language: ${language} (confidence ${confidence.toFixed(3)})`;
+        setStatus('Language detection completed.', false);
+      }
+
+      function extractPhrasesFromResponse(json) {
+        const segmentPhrases = Array.isArray(json?.segments)
+          ? json.segments
+            .map((segment) => String(segment?.text || '').trim())
+            .filter(Boolean)
+          : [];
+
+        if (segmentPhrases.length > 0) {
+          return segmentPhrases;
+        }
+
+        const transcript = String(json?.text || '').trim();
+        if (!transcript) {
+          return [];
+        }
+
+        return transcript
+          .split(/\r?\n+|(?<=[.!?])\s+/g)
+          .map((part) => part.trim())
+          .filter(Boolean);
+      }
+
+      function renderPhraseList(phraseItems) {
+        return phraseItems
+          .map((item, index) => {
+            const chunkPrefix = item.chunk ? `[Chunk ${item.chunk}] ` : '';
+            return `${index + 1}. ${chunkPrefix}${item.text}`;
+          })
+          .join('\n');
       }
 
       form.addEventListener('submit', async (event) => {
@@ -1427,50 +1663,100 @@
           return;
         }
 
-        button.disabled = true;
+        setAudioActionsDisabled(true);
         outputEl.value = '';
         metaEl.textContent = '';
-        setStatus(`Uploading ${file.name}...`, false);
+        const useChunking = Boolean(chunkBySilenceCheckbox.checked);
+        const outputMode = outputModeSelect.value === 'phrases' ? 'phrases' : 'full';
+        setStatus(useChunking ? `Analyzing ${file.name} for silence-based chunking...` : `Uploading ${file.name}...`, false);
 
         try {
-          const formData = new FormData();
-          formData.append('audio', file);
-
-          const response = await fetch('/api/audio/transcribe', {
-            method: 'POST',
-            headers: fileApiHeaders(),
-            body: formData,
-          });
-
-          const { raw, json } = await readApiResponse(response);
-          if (!response.ok) {
-            let message = 'Audio transcription failed.';
-            if (json?.message) {
-              message = json.message;
-            } else if (raw && raw.trim().startsWith('<')) {
-              message = `Audio transcription failed (${response.status}). Upstream returned HTML (likely Nginx/proxy).`;
-            } else if (raw.trim()) {
-              message = raw.trim().slice(0, 240);
+          if (useChunking) {
+            let chunks = [];
+            try {
+              chunks = await splitAudioFileOnSilence(file);
+            } catch (error) {
+              console.warn('[audio-ui] client-side chunking failed, falling back to single upload', error);
+              chunks = [];
             }
-            throw new Error(message);
+
+            if (chunks.length > 1) {
+              const transcriptParts = [];
+              const phraseItems = [];
+              let totalSegments = 0;
+
+              for (let idx = 0; idx < chunks.length; idx += 1) {
+                setStatus(`Transcribing chunk ${idx + 1}/${chunks.length}...`, false);
+                const chunkName = `${file.name.replace(/\.[^.]+$/, '')}.chunk-${idx + 1}.wav`;
+                const { json } = await postAudioForm('/api/audio/transcribe', chunks[idx], chunkName);
+                const transcript = typeof json?.text === 'string' ? json.text.trim() : '';
+                if (transcript) {
+                  transcriptParts.push(transcript);
+                }
+                if (outputMode === 'phrases') {
+                  const phrases = extractPhrasesFromResponse(json);
+                  for (const phrase of phrases) {
+                    phraseItems.push({ text: phrase, chunk: idx + 1 });
+                  }
+                }
+                totalSegments += Array.isArray(json?.segments) ? json.segments.length : 0;
+              }
+
+              outputEl.value = outputMode === 'phrases'
+                ? renderPhraseList(phraseItems)
+                : transcriptParts.join('\n\n');
+              const phraseMeta = outputMode === 'phrases' ? ` · Phrases: ${phraseItems.length}` : '';
+              metaEl.textContent = `Chunks: ${chunks.length} · Segments: ${totalSegments}${phraseMeta} · Output: ${outputMode}`;
+              if (!outputEl.value.trim()) {
+                setStatus('Chunk transcription completed, but no speech was detected.', false);
+              } else {
+                setStatus(`Transcription completed from ${chunks.length} chunks (${outputMode} mode).`, false);
+              }
+              return;
+            }
           }
 
+          const { json } = await postAudioForm('/api/audio/transcribe', file, file.name);
           const transcript = typeof json?.text === 'string' ? json.text : '';
-          outputEl.value = transcript;
+          if (outputMode === 'phrases') {
+            const phraseItems = extractPhrasesFromResponse(json).map((text) => ({ text }));
+            outputEl.value = renderPhraseList(phraseItems);
+          } else {
+            outputEl.value = transcript;
+          }
 
           const segmentCount = Array.isArray(json?.segments) ? json.segments.length : 0;
           const language = json?.language || 'unknown';
-          metaEl.textContent = `Language: ${language} · Segments: ${segmentCount}`;
+          const phraseCount = outputMode === 'phrases' ? extractPhrasesFromResponse(json).length : 0;
+          const phraseMeta = outputMode === 'phrases' ? ` · Phrases: ${phraseCount}` : '';
+          metaEl.textContent = `Language: ${language} · Segments: ${segmentCount}${phraseMeta} · Output: ${outputMode}`;
 
           if (!transcript.trim()) {
             setStatus('Transcription completed, but no speech was detected in this file.', false);
           } else {
-            setStatus('Transcription completed.', false);
+            setStatus(`Transcription completed (${outputMode} mode).`, false);
           }
         } catch (error) {
           setStatus(error instanceof Error ? error.message : 'Audio transcription failed.', true);
         } finally {
-          button.disabled = false;
+          setAudioActionsDisabled(false);
+        }
+      });
+
+      detectButton.addEventListener('click', async () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) {
+          setStatus('Please select an MP3 or WAV file first.', true);
+          return;
+        }
+
+        setAudioActionsDisabled(true);
+        try {
+          await runLanguageDetection(file);
+        } catch (error) {
+          setStatus(error instanceof Error ? error.message : 'Language detection failed.', true);
+        } finally {
+          setAudioActionsDisabled(false);
         }
       });
     })();

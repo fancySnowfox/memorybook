@@ -9,6 +9,7 @@
     "dev": "node --watch server/index.js",
     "rag:reindex": "node server/scripts/reindex-rag.js",
     "video:convert": "node server/scripts/convert-mov-to-mp4.js",
+    "glossary:pptx": "node server/scripts/build-medical-glossary-from-pptx.js",
     "test": "jest",
     "test:watch": "jest --watch"
   },

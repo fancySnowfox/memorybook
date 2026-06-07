@@ -158,10 +158,10 @@ async function main() {
 
     const maxBytes = options.maxMb * 1024 * 1024;
     const attempts = [
-      //{ width: 1920, audioKbps: 128, videoKbps: 2200 },
-      //{ width: 1280, audioKbps: 96, videoKbps: 1600 },
+      { width: 1920, audioKbps: 128, videoKbps: 2000 },
+      { width: 1280, audioKbps: 96, videoKbps: 1600 },
       { width: 960, audioKbps: 64, videoKbps: 1100 },
-      //{ width: 720, audioKbps: 48, videoKbps: 800 },
+      { width: 720, audioKbps: 48, videoKbps: 800 },
       { width: 640, audioKbps: 32, videoKbps: 600 },
       { width: 480, audioKbps: 32, videoKbps: 400 },
     ].map((attempt) => {
@@ -187,8 +187,8 @@ async function main() {
       if (fs.existsSync(tempOutputPath)) {
         fs.unlinkSync(tempOutputPath);
       }
-
-      const videoFilter = `scale=w=${attempt.width}:h=-2:force_original_aspect_ratio=decrease`;
+      
+      const videoFilter = `scale=${attempt.width}:-2,scale=iw:trunc(ih/2)*2:force_original_aspect_ratio=decrease`;
       const ffmpegArgs = [
         '-y',
         '-i',

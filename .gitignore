@@ -6,6 +6,8 @@ web/.sshots/
 uploads/
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+test/
+
 # dependencies
 node_modules/
 .pnp/
@@ -63,5 +65,6 @@ dmypy.json
 .sshots/
 files/
 !files/.gitkeep
-Japanese3ExtraCredit.MOV
-Japanese3ExtraCredit.mp4
+*.MOV
+*.mov
+*.mp4

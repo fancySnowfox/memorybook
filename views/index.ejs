@@ -1281,6 +1281,7 @@
         setStatus('Converting video… this can take a minute for larger files.', false);
 
         const progressId = createProgressId();
+        console.log('[video-ui] progressId:', progressId);
         let progressPoller = null;
         let sawProgressData = false;
         let uploadCompleted = false;
@@ -1288,7 +1289,9 @@
 
         async function pollProgress() {
           try {
-            const progressRes = await fetch(`/api/video/convert/progress/${encodeURIComponent(progressId)}`);
+            const progressRes = await fetch(`/api/video/convert/progress/${encodeURIComponent(progressId)}`, {
+              headers: fileApiHeaders(),
+            });
             if (!progressRes.ok) {
               if (progressRes.status === 404 && !sawProgressData) {
                 if (uploadCompleted) {

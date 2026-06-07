@@ -11,7 +11,7 @@ const PROJECT_FFMPEG_CANDIDATES = [
 
 function printUsage() {
   console.log(`Usage:
-  node server/scripts/convert-mov-to-mp4.js <input.mov> [output.mp4] [--max-mb=10] [--max-width=1280]
+  node server/scripts/convert-mov-to-mp4.js <input.mov> [output.mp4] [--max-mb=15] [--max-width=1280]
 
 Examples:
   node server/scripts/convert-mov-to-mp4.js ./videos/input.MOV
@@ -21,7 +21,7 @@ Examples:
 
 function parseArgs(argv) {
   const options = {
-    maxMb: 10,
+    maxMb: 15,
     maxWidth: null,
   };
 
@@ -54,11 +54,18 @@ function parseArgs(argv) {
   }
 
   const inputPath = path.resolve(positional[0]);
-  const outputPath = positional[1]
+    const requestedOutputPath = positional[1]
     ? path.resolve(positional[1])
     : path.resolve(
         path.dirname(inputPath),
         `${path.basename(inputPath, path.extname(inputPath))}.h264.mp4`
+      );
+
+  const outputPath = /\.mp4$/i.test(requestedOutputPath)
+    ? requestedOutputPath
+    : path.join(
+        path.dirname(requestedOutputPath),
+        `${path.basename(requestedOutputPath, path.extname(requestedOutputPath))}.mp4`
       );
 
   return { inputPath, outputPath, options };
@@ -134,6 +141,10 @@ async function main() {
   try {
     const { inputPath, outputPath, options } = parseArgs(process.argv.slice(2));
 
+    if (!/\.mp4$/i.test(outputPath)) {
+      throw new Error('Output file must use .mp4 extension.');
+    }
+
     if (!fs.existsSync(inputPath)) {
       throw new Error(`Input file not found: ${inputPath}`);
     }
@@ -147,12 +158,12 @@ async function main() {
 
     const maxBytes = options.maxMb * 1024 * 1024;
     const attempts = [
-      { width: 1920, audioKbps: 128, videoKbps: 2200 },
-      { width: 1280, audioKbps: 96, videoKbps: 1600 },
+      //{ width: 1920, audioKbps: 128, videoKbps: 2200 },
+      //{ width: 1280, audioKbps: 96, videoKbps: 1600 },
       { width: 960, audioKbps: 64, videoKbps: 1100 },
-      { width: 720, audioKbps: 48, videoKbps: 800 },
+      //{ width: 720, audioKbps: 48, videoKbps: 800 },
       { width: 640, audioKbps: 32, videoKbps: 600 },
-      { width: 480, audioKbps: 32, videoKbps: 450 },
+      { width: 480, audioKbps: 32, videoKbps: 400 },
     ].map((attempt) => {
       if (!options.maxWidth) {
         return attempt;
@@ -188,11 +199,14 @@ async function main() {
 
       ffmpegArgs.push(
         '-c:v',
-        'mpeg4',
+        'libx264',
+        '-profile:v',
+        'main',
+        '-pix_fmt',
+        'yuv420p',
         '-b:v',
         `${attempt.videoKbps}k`,
-        '-pix_fmt',
-        'yuv420p'
+  
       );
 
       ffmpegArgs.push(

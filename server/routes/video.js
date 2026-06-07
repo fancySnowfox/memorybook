@@ -27,6 +27,10 @@ function userConvertedDir(req) {
   return path.join(persistentConvertedDir, ownerId(req));
 }
 
+function progressMapKey(ownerScope, progressId) {
+  return `${ownerScope}:${progressId}`;
+}
+
 function resolveFormidableFactory() {
   if (typeof formidable === 'function') {
     return formidable;
@@ -155,12 +159,12 @@ function toSecondsFromTimecode(timecode) {
   return (hours * 3600) + (minutes * 60) + seconds;
 }
 
-function setProgress(progressId, patch) {
-  if (!progressId) {
+function setProgress(progressKey, patch) {
+  if (!progressKey) {
     return;
   }
 
-  const current = conversionProgress.get(progressId) || {
+  const current = conversionProgress.get(progressKey) || {
     status: 'queued',
     message: 'Queued',
     percent: 0,
@@ -173,29 +177,29 @@ function setProgress(progressId, patch) {
     updatedAt: new Date().toISOString(),
   };
 
-  conversionProgress.set(progressId, next);
+  conversionProgress.set(progressKey, next);
 }
 
-function scheduleProgressCleanup(progressId) {
-  if (!progressId) {
+function scheduleProgressCleanup(progressKey) {
+  if (!progressKey) {
     return;
   }
 
   setTimeout(() => {
-    const entry = conversionProgress.get(progressId);
+    const entry = conversionProgress.get(progressKey);
     if (!entry) {
       return;
     }
 
     const age = Date.now() - Date.parse(entry.updatedAt || entry.createdAt || 0);
     if (age >= PROGRESS_RETENTION_MS) {
-      conversionProgress.delete(progressId);
+      conversionProgress.delete(progressKey);
     }
   }, PROGRESS_RETENTION_MS + 1000);
 }
 
-function updateProgressFromLogLine(progressId, line, parseState) {
-  if (!progressId || !line) {
+function updateProgressFromLogLine(progressKey, line, parseState) {
+  if (!progressKey || !line) {
     return;
   }
 
@@ -203,7 +207,7 @@ function updateProgressFromLogLine(progressId, line, parseState) {
   if (attemptMatch) {
     parseState.attempt = Number(attemptMatch[1]);
     parseState.attemptTotal = Number(attemptMatch[2]);
-    setProgress(progressId, {
+    setProgress(progressKey, {
       status: 'converting',
       message: `Encoding attempt ${parseState.attempt}/${parseState.attemptTotal}`,
       attempt: parseState.attempt,
@@ -246,7 +250,7 @@ function updateProgressFromLogLine(progressId, line, parseState) {
   const speedMatch = line.match(/speed=\s*([0-9.]+)x/i);
   const speed = speedMatch ? `${speedMatch[1]}x` : null;
 
-  setProgress(progressId, {
+  setProgress(progressKey, {
     status: 'converting',
     message: percent ? `Converting... ${percent}%` : 'Converting...',
     percent,
@@ -375,7 +379,16 @@ function createDebugUploadFileName(originalName) {
 async function convertMovToMp4(req, res) {
   const tempWorkDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'snowfox-video-work-'));
   console.log(`[video] Temp work directory created: ${tempWorkDir}`);
+  const ownerScope = ownerId(req);
   const progressId = isValidProgressId(req.body?.progressId) ? req.body.progressId : null;
+  console.log(`[video] Conversion request received`, {
+    ownerScope,
+    progressId,
+    hasFile: Boolean(req.file),
+    originalFilename: req.file?.originalFilename || null,
+    fileSize: req.file?.size || null,
+  });
+  const progressKey = progressId ? progressMapKey(ownerScope, progressId) : null;
   const parseState = {
     durationSeconds: null,
     lastElapsedSeconds: 0,
@@ -384,8 +397,8 @@ async function convertMovToMp4(req, res) {
     attemptTotal: null,
   };
 
-  if (progressId) {
-    setProgress(progressId, {
+  if (progressKey) {
+    setProgress(progressKey, {
       status: 'queued',
       message: 'Upload received. Preparing conversion...',
       percent: 0,
@@ -441,8 +454,8 @@ async function convertMovToMp4(req, res) {
 
 
 
-    if (progressId) {
-      setProgress(progressId, {
+    if (progressKey) {
+      setProgress(progressKey, {
         status: 'converting',
         message: 'Starting ffmpeg conversion...',
         percent: 1,
@@ -460,7 +473,7 @@ async function convertMovToMp4(req, res) {
     }
 
     await runNodeScript(converterScriptPath, converterArgs, {
-      onLine: (line) => updateProgressFromLogLine(progressId, line, parseState),
+      onLine: (line) => updateProgressFromLogLine(progressKey, line, parseState),
       echoToConsole: true,
     });
 
@@ -474,20 +487,21 @@ async function convertMovToMp4(req, res) {
       await fs.promises.mkdir(targetDir, { recursive: true });
       const storedFileName = createStoredFileName(originalName);
       storedFilePath = path.join(targetDir, storedFileName);
+      console.log(`[video] Copying converted file to permanent storage: ${storedFilePath}`);
       await fs.promises.copyFile(outputPath, storedFilePath);
       res.setHeader('X-Stored-File', storedFileName);
     }
 
     res.setHeader('X-Output-Size-MB', outputSizeMb.toFixed(2));
 
-    if (progressId) {
-      setProgress(progressId, {
+    if (progressKey) {
+      setProgress(progressKey, {
         status: 'completed',
         message: 'Conversion complete. Download started.',
         percent: 100,
         outputSizeMb: Number(outputSizeMb.toFixed(2)),
       });
-      scheduleProgressCleanup(progressId);
+      scheduleProgressCleanup(progressKey);
     }
 
     res.download(outputPath, downloadName, async (downloadError) => {
@@ -510,12 +524,12 @@ async function convertMovToMp4(req, res) {
   } catch (error) {
     console.error('Video conversion error:', error);
 
-    if (progressId) {
-      setProgress(progressId, {
+    if (progressKey) {
+      setProgress(progressKey, {
         status: 'error',
         message: error instanceof Error ? error.message : 'Video conversion failed',
       });
-      scheduleProgressCleanup(progressId);
+      scheduleProgressCleanup(progressKey);
     }
 
     if (!res.headersSent) {
@@ -543,7 +557,8 @@ function getVideoConvertProgress(req, res) {
     return;
   }
 
-  const progress = conversionProgress.get(progressId);
+  const ownerScope = ownerId(req);
+  const progress = conversionProgress.get(progressMapKey(ownerScope, progressId));
   if (!progress) {
     res.status(404).json({
       status: 'error',
